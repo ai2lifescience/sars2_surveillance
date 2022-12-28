@@ -45,7 +45,7 @@ start_time="$(date +%s)"
 ####################Set path to dependencies. For CSC only####################
 path_to_dependencies="your_path/havoc/bin"
 ####################################Options####################################
-thread_num=8
+thread_num=56
 tools_prepro="fastp"
 tools_aligner="bwa"
 tools_sam="sambamba"
