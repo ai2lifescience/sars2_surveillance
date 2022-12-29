@@ -38,7 +38,8 @@ rule all:
         trim_r2 = expand(Pqc + '/{sample}/{sample}_trim_R2.fastq.gz', sample=Lsample),
         temp_genome_fa = expand(Pmap + '/{sample}/{sample}_temp_genome.fa', sample=Lsample),
         sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample),
-        rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample)
+        rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample),
+        dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample)
 
 
 ##################################
@@ -113,4 +114,16 @@ rule rm_primer:
         sambamba sort -o {output.fix_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {output.fix_bam} 1>>{log.o} 2>>{log.e}
         ivar trim -i {output.fix_sort_bam} -b {input.primer_bed} -p {params.rmp_bam_prefix} -e 1>>{log.o} 2>>{log.e}
         sambamba sort -o {output.rmp_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {params.rmp_bam_prefix}.bam 1>>{log.o} 2>>{log.e}
+        """
+
+rule dedup:
+    input: rmp_sort_bam = rules.rm_primer.output.rmp_sort_bam
+    output: dedup_bam = Pdedup + '/{sample}/{sample}_dedup.bam'
+    log: e = Plog + '/dedup/{sample}.e', o = Plog + '/dedup/{sample}.o'
+    benchmark: Plog + '/dedup/{sample}.bmk'
+    resources: cpus=Dresources['dedup_cpus']
+    conda: 'envs/surveillance.yml'
+    shell:"""
+        sambamba markdup -r -t {resources.cpus} --overflow-list-size=500000 {input.rmp_sort_bam} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
+        sambamba index -t {resources.cpus} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
         """
