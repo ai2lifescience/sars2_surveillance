@@ -10,7 +10,7 @@ primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
 ##################################
 ### Config
 ##################################
-min_coverage: 5
+min_coverage: 30
 
 ##################################
 ### Resources
