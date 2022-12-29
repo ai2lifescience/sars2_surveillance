@@ -6,3 +6,5 @@ channels:
 dependencies:
   - fastp=0.23.2
   - bwa=0.7.17
+  - sambamba=0.8.2
+

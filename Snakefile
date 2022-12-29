@@ -36,7 +36,7 @@ rule all:
         trim_r1 = expand(Pqc + '/{sample}/{sample}_trim_R1.fastq.gz', sample=Lsample),
         trim_r2 = expand(Pqc + '/{sample}/{sample}_trim_R2.fastq.gz', sample=Lsample),
         temp_genome_fa = expand(Pmap + '/{sample}/{sample}_temp_genome.fa', sample=Lsample),
-        sam = Pmap + expand('/{sample}/{sample}.sam', sample=Lsample)
+        sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample)
 
 
 ##################################
@@ -71,7 +71,9 @@ rule map:
         genome_fa = config['genome_fa']
     output:
         temp_genome_fa = Pmap + '/{sample}/{sample}_temp_genome.fa',
-        sam = Pmap + '/{sample}/{sample}.sam'
+        sam = Pmap + '/{sample}/{sample}.sam',
+        bam = Pmap + '/{sample}/{sample}.bam',
+        sort_bam = Pmap + '/{sample}/{sample}_sort.bam',
     log: e = Plog + '/map/{sample}.e', o = Plog + '/map/{sample}.o'
     benchmark: Plog + '/map/{sample}.bmk'
     resources: cpus=Dresources['map_cpus']
@@ -82,7 +84,10 @@ rule map:
         awk 'NR>1{{printf "%s",$0}}' {input.genome_fa} >> {output.temp_genome_fa}
         
         # map
-        bwa index {output.temp_genome_fa}
+        bwa index {output.temp_genome_fa} 1>{log.o} 2>{log.e}
         bwa mem -t {resources.cpus} -v 1 {output.temp_genome_fa} \\
-            {input.trim_r1} {input.trim_r2} -o {output.sam}
+            {input.trim_r1} {input.trim_r2} -o {output.sam} 1>>{log.o} 2>>{log.e}
+        sambamba view --sam-input -o {output.bam} -f bam -t {resources.cpus} {output.sam} 1>>{log.o} 2>>{log.e}
+        sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
         """
+
