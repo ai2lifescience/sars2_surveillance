@@ -13,7 +13,4 @@ dependencies:
   - bedtools=2.30.0
   - bcftools=1.16
   - bamutil=1.0.15
-  # pangolin should be the latest version
-  - pangolin
-
-
+  - pangolin=4.1.3

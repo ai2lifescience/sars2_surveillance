@@ -17,6 +17,7 @@ Pqc=f'{outdir}/1qc'
 Pmap=f'{outdir}/2map'
 Pdedup=f'{outdir}/3dedup'
 Pconsensus=f'{outdir}/4consensus'
+Plineage=f'{outdir}/5lineage'
 
 
 for p in [Pqc,Pmap]: 
@@ -42,11 +43,12 @@ rule all:
         rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample),
         dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample),
         mask_genome_fa = expand(Pconsensus + '/{sample}/{sample}_mask_genome.fa', sample=Lsample),
-        consensus_fa = expand(Pconsensus + '/{sample}/{sample}_consensus.fa', sample=Lsample)
+        consensus_fa = expand(Pconsensus + '/{sample}/{sample}_consensus.fa', sample=Lsample),
+        lineage_csv = expand(Plineage + '/{sample}/{sample}_lineage.csv', sample=Lsample)
 
 
 ##################################
-### Common rules
+### Rules
 ##################################
 rule qc:
     input: 
@@ -168,4 +170,17 @@ rule consensus:
         samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} -o {output.pileup} 1>>{log.o} 2>>{log.e}
         cat {output.pileup} | ivar consensus -p {params.consensus_prifix} 1>>{log.o} 2>>{log.e}
         cat {params.consensus_prifix}.fa | sed "s/^>.*/>{wildcards.sample}/g" > {output.consensus_fa} 2>>{log.e}
+        """
+
+rule pangolin:
+    input: consensus_fa = rules.consensus.output.consensus_fa
+    output: lineage_csv = Plineage + '/{sample}/{sample}_lineage.csv',
+    log: e = Plog + '/pangolin/{sample}.e', o = Plog + '/pangolin/{sample}.o'
+    benchmark: Plog + '/pangolin/{sample}.bmk'
+    resources: cpus=Dresources['pangolin_cpus']
+    params: pangolin_prifix=Plineage + '/{sample}/{sample}',
+    conda: 'envs/surveillance.yml'
+    shell:"""
+        pangolin {input.consensus_fa} \\
+            --outfile {output.lineage_csv} -t {resources.cpus} 1>>{log.o} 2>>{log.e}
         """
