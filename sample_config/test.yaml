@@ -1,7 +1,8 @@
 indir: 'test/rawdata'
 outdir: 'test/output'
-Lsample: 'test_Africa'
+Lsample: ['test_Africa']
 genome_fa: 'src/SARS-CoV-2_WT.fa'
+primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
 
 ##################################
 ### Resources
@@ -9,3 +10,5 @@ genome_fa: 'src/SARS-CoV-2_WT.fa'
 Dresources:
   qc_cpus: 8
   map_cpus: 30
+  rm_primer_cpus: 30
+  dedup_cpus: 30

@@ -14,6 +14,7 @@ outdir=config['outdir']
 Plog=f'{outdir}/0log'
 Pqc=f'{outdir}/1qc'
 Pmap=f'{outdir}/2map'
+Pdedup=f'{outdir}/3dedup'
 
 
 
@@ -36,7 +37,8 @@ rule all:
         trim_r1 = expand(Pqc + '/{sample}/{sample}_trim_R1.fastq.gz', sample=Lsample),
         trim_r2 = expand(Pqc + '/{sample}/{sample}_trim_R2.fastq.gz', sample=Lsample),
         temp_genome_fa = expand(Pmap + '/{sample}/{sample}_temp_genome.fa', sample=Lsample),
-        sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample)
+        sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample),
+        rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample)
 
 
 ##################################
@@ -91,3 +93,24 @@ rule map:
         sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
         """
 
+rule rm_primer:
+    input: 
+        sort_bam = rules.map.output.sort_bam,
+        primer_bed = config['primer_bed']
+    output:
+        fix_bam = Pdedup + '/{sample}/{sample}_fixmate.bam',
+        fix_sort_bam = Pdedup + '/{sample}/{sample}_fixmate_sort.bam',
+        rmp_sort_bam = Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam',
+    log: e = Plog + '/rm_primer/{sample}.e', o = Plog + '/rm_primer/{sample}.o'
+    benchmark: Plog + '/rm_primer/{sample}.bmk'
+    resources: cpus=Dresources['rm_primer_cpus']
+    params: 
+        tmp=Pdedup + '/{sample}/{sample}_tmp',
+        rmp_bam_prefix=Pdedup + '/{sample}/{sample}_rmPrimer'
+    conda: 'envs/surveillance.yml'
+    shell:"""
+    	samtools fixmate -m {input.sort_bam} {output.fix_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
+        sambamba sort -o {output.fix_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {output.fix_bam} 1>>{log.o} 2>>{log.e}
+        ivar trim -i {output.fix_sort_bam} -b {input.primer_bed} -p {params.rmp_bam_prefix} -e 1>>{log.o} 2>>{log.e}
+        sambamba sort -o {output.rmp_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {params.rmp_bam_prefix}.bam 1>>{log.o} 2>>{log.e}
+        """
