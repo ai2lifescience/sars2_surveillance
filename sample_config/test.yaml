@@ -20,4 +20,5 @@ Dresources:
   map_cpus: 30
   rm_primer_cpus: 30
   dedup_cpus: 30
-  mask_genome_cpus:  30
+  mask_genome_cpus: 30
+  consensus_cpus: 30

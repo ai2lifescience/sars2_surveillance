@@ -41,7 +41,8 @@ rule all:
         sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample),
         rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample),
         dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample),
-        mask_genome_fa = expand(Pconsensus + '/{sample}/{sample}_mask_genome.fa', sample=Lsample)
+        mask_genome_fa = expand(Pconsensus + '/{sample}/{sample}_mask_genome.fa', sample=Lsample),
+        consensus_fa = expand(Pconsensus + '/{sample}/{sample}_consensus.fa', sample=Lsample)
 
 
 ##################################
@@ -146,4 +147,25 @@ rule mask_genome:
         bedtools genomecov -ibam {input.dedup_bam} -bga > {output.bedgraph} 2>>{log.e}
         awk -v cov={min_coverage} '$4<cov' {output.bedgraph} | bedtools merge -i - >{output.lowcov_bed} 2>>{log.e}
         bedtools maskfasta -fi {input.smp_genome_fa} -bed {output.lowcov_bed} -fo {output.mask_genome_fa} 1>>{log.o} 2>>{log.e}
+        """
+
+rule consensus:
+    input: 
+        dedup_bam = rules.dedup.output.dedup_bam,
+        mask_genome_fa = rules.mask_genome.output.mask_genome_fa
+    output: 
+        bqsr_bam = Pconsensus + '/{sample}/{sample}_bqsr.bam',
+        pileup = Pconsensus + '/{sample}/{sample}.pileup',
+        consensus_fa = Pconsensus + '/{sample}/{sample}_consensus.fa'
+    log: e = Plog + '/consensus/{sample}.e', o = Plog + '/consensus/{sample}.o'
+    benchmark: Plog + '/consensus/{sample}.bmk'
+    resources: cpus=Dresources['consensus_cpus']
+    params: consensus_prifix=Pconsensus + '/{sample}/{sample}',
+    conda: 'envs/surveillance.yml'
+    shell:"""
+        lofreq indelqual {input.dedup_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
+        samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
+        samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} -o {output.pileup} 1>>{log.o} 2>>{log.e}
+        cat {output.pileup} | ivar consensus -p {params.consensus_prifix} 1>>{log.o} 2>>{log.e}
+        cat {params.consensus_prifix}.fa | sed "s/^>.*/>{wildcards.sample}/g" > {output.consensus_fa} 2>>{log.e}
         """
