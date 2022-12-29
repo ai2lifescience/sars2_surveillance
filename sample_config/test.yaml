@@ -1,0 +1,10 @@
+indir: 'test/rawdata'
+outdir: 'test/output'
+Lsample: 'test_Africa'
+
+
+##################################
+### Resources
+##################################
+Dresources:
+  qc_cpus: 8
