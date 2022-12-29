@@ -8,9 +8,6 @@ configfile: 'sample_config/test.yaml'
 Lsample=config['Lsample']
 Dresources=config['Dresources']
 
-# ref
-# ref_genome = config['Dref_genome'][genome]
-
 # structure
 indir=config['indir']
 outdir=config['outdir']
@@ -38,6 +35,8 @@ rule all:
     input:
         trim_r1 = expand(Pqc + '/{sample}/{sample}_trim_R1.fastq.gz', sample=Lsample),
         trim_r2 = expand(Pqc + '/{sample}/{sample}_trim_R2.fastq.gz', sample=Lsample),
+        temp_genome_fa = expand(Pmap + '/{sample}/{sample}_temp_genome.fa', sample=Lsample),
+        sam = Pmap + expand('/{sample}/{sample}.sam', sample=Lsample)
 
 
 ##################################
@@ -63,4 +62,27 @@ rule qc:
             -o {output.trim_r1} -O {output.trim_r2} --unpaired1 {output.unpair_r1} --unpaired2 {output.unpair_r2} \\
             -q 15 -u 40 -l 25 --cut_right --cut_window_size 20 --cut_mean_quality 30 --correction \\
             1>{log.o} 2>{log.e}
+        """
+
+rule map:
+    input: 
+        trim_r1 = rules.qc.output.trim_r1,
+        trim_r2 = rules.qc.output.trim_r2,
+        genome_fa = config['genome_fa']
+    output:
+        temp_genome_fa = Pmap + '/{sample}/{sample}_temp_genome.fa',
+        sam = Pmap + '/{sample}/{sample}.sam'
+    log: e = Plog + '/map/{sample}.e', o = Plog + '/map/{sample}.o'
+    benchmark: Plog + '/map/{sample}.bmk'
+    resources: cpus=Dresources['map_cpus']
+    conda: 'envs/surveillance.yml'
+    shell:"""
+        # create sample specific genome fasta
+        grep ">" {input.genome_fa} | sed "s/>.*/>{wildcards.sample}/g" > {output.temp_genome_fa}
+        awk 'NR>1{{printf "%s",$0}}' {input.genome_fa} >> {output.temp_genome_fa}
+        
+        # map
+        bwa index {output.temp_genome_fa}
+        bwa mem -t {resources.cpus} -v 1 {output.temp_genome_fa} \\
+            {input.trim_r1} {input.trim_r2} -o {output.sam}
         """

@@ -1,10 +1,11 @@
 indir: 'test/rawdata'
 outdir: 'test/output'
 Lsample: 'test_Africa'
-
+genome_fa: 'src/SARS-CoV-2_WT.fa'
 
 ##################################
 ### Resources
 ##################################
 Dresources:
   qc_cpus: 8
+  map_cpus: 30
