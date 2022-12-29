@@ -7,6 +7,7 @@ configfile: 'sample_config/test.yaml'
 ##############################
 Lsample=config['Lsample']
 Dresources=config['Dresources']
+min_coverage=config['min_coverage']
 
 # structure
 indir=config['indir']
@@ -15,7 +16,7 @@ Plog=f'{outdir}/0log'
 Pqc=f'{outdir}/1qc'
 Pmap=f'{outdir}/2map'
 Pdedup=f'{outdir}/3dedup'
-
+Pconsensus=f'{outdir}/4consensus'
 
 
 for p in [Pqc,Pmap]: 
@@ -36,10 +37,11 @@ rule all:
     input:
         trim_r1 = expand(Pqc + '/{sample}/{sample}_trim_R1.fastq.gz', sample=Lsample),
         trim_r2 = expand(Pqc + '/{sample}/{sample}_trim_R2.fastq.gz', sample=Lsample),
-        temp_genome_fa = expand(Pmap + '/{sample}/{sample}_temp_genome.fa', sample=Lsample),
+        smp_genome_fa = expand(Pmap + '/{sample}/{sample}_smp_genome.fa', sample=Lsample),
         sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample),
         rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample),
-        dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample)
+        dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample),
+        mask_genome_fa = expand(Pconsensus + '/{sample}/{sample}_mask_genome.fa', sample=Lsample)
 
 
 ##################################
@@ -73,7 +75,7 @@ rule map:
         trim_r2 = rules.qc.output.trim_r2,
         genome_fa = config['genome_fa']
     output:
-        temp_genome_fa = Pmap + '/{sample}/{sample}_temp_genome.fa',
+        smp_genome_fa = Pmap + '/{sample}/{sample}_smp_genome.fa',
         sam = Pmap + '/{sample}/{sample}.sam',
         bam = Pmap + '/{sample}/{sample}.bam',
         sort_bam = Pmap + '/{sample}/{sample}_sort.bam',
@@ -83,12 +85,12 @@ rule map:
     conda: 'envs/surveillance.yml'
     shell:"""
         # create sample specific genome fasta
-        grep ">" {input.genome_fa} | sed "s/>.*/>{wildcards.sample}/g" > {output.temp_genome_fa}
-        awk 'NR>1{{printf "%s",$0}}' {input.genome_fa} >> {output.temp_genome_fa}
+        grep ">" {input.genome_fa} | sed "s/>.*/>{wildcards.sample}/g" > {output.smp_genome_fa}
+        awk 'NR>1{{printf "%s",$0}}' {input.genome_fa} >> {output.smp_genome_fa}
         
         # map
-        bwa index {output.temp_genome_fa} 1>{log.o} 2>{log.e}
-        bwa mem -t {resources.cpus} -v 1 {output.temp_genome_fa} \\
+        bwa index {output.smp_genome_fa} 1>{log.o} 2>{log.e}
+        bwa mem -t {resources.cpus} -v 1 {output.smp_genome_fa} \\
             {input.trim_r1} {input.trim_r2} -o {output.sam} 1>>{log.o} 2>>{log.e}
         sambamba view --sam-input -o {output.bam} -f bam -t {resources.cpus} {output.sam} 1>>{log.o} 2>>{log.e}
         sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
@@ -126,4 +128,22 @@ rule dedup:
     shell:"""
         sambamba markdup -r -t {resources.cpus} --overflow-list-size=500000 {input.rmp_sort_bam} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
         sambamba index -t {resources.cpus} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
+        """
+
+rule mask_genome:
+    input: 
+        dedup_bam = rules.dedup.output.dedup_bam,
+        smp_genome_fa = rules.map.output.smp_genome_fa
+    output: 
+        bedgraph = Pconsensus + '/{sample}/{sample}.bedgraph',
+        lowcov_bed = Pconsensus + '/{sample}/{sample}_lowcov.bed',
+        mask_genome_fa = Pconsensus + '/{sample}/{sample}_mask_genome.fa'
+    log: e = Plog + '/mask_genome/{sample}.e', o = Plog + '/mask_genome/{sample}.o'
+    benchmark: Plog + '/mask_genome/{sample}.bmk'
+    resources: cpus=Dresources['mask_genome_cpus']
+    conda: 'envs/surveillance.yml'
+    shell:"""
+        bedtools genomecov -ibam {input.dedup_bam} -bga > {output.bedgraph} 2>>{log.e}
+        awk -v cov={min_coverage} '$4<cov' {output.bedgraph} | bedtools merge -i - >{output.lowcov_bed} 2>>{log.e}
+        bedtools maskfasta -fi {input.smp_genome_fa} -bed {output.lowcov_bed} -fo {output.mask_genome_fa} 1>>{log.o} 2>>{log.e}
         """

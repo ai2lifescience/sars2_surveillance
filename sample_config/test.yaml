@@ -1,8 +1,16 @@
+##################################
+### IO
+##################################
 indir: 'test/rawdata'
 outdir: 'test/output'
 Lsample: ['test_Africa']
 genome_fa: 'src/SARS-CoV-2_WT.fa'
 primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
+
+##################################
+### Config
+##################################
+min_coverage: 30
 
 ##################################
 ### Resources
@@ -12,3 +20,4 @@ Dresources:
   map_cpus: 30
   rm_primer_cpus: 30
   dedup_cpus: 30
+  mask_genome_cpus:  30
