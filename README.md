@@ -26,7 +26,7 @@ snakemake -j 5 --use-conda --cluster "sbatch -p compute --mem-per-cpu 4g -c {res
 - For convenience, you can write a config file in `~/.config/snakemake`, for example
 ```sh
 mkdir -p ~/.config/snakemake/my_smk_config
-echo 'cluster: "sbatch -p compute --mem-per-cpu 4g -c {resources.cpus} -J {rule}_{wildcards} -o {log.o} -e {log.e} -t 10080"' > ~/.config/snakemake/my_smk_config/config.yaml
+echo 'cluster: "sbatch -p compute --mem-per-cpu 4g -c {resources.cpus} -J {rule}_{wildcards} -o {log.o} -e {log.e}"' > ~/.config/snakemake/my_smk_config/config.yaml
 echo 'use-conda: TRUE' >> ~/.config/snakemake/my_smk_config/config.yaml
 ```
 - Then you can run pipeline by
