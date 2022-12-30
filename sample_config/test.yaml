@@ -3,7 +3,7 @@
 ##################################
 indir: 'test/rawdata'
 outdir: 'test/output'
-Lsample: ['test_Africa']
+Lsample: ['test_Africa', 'test_BF7']
 genome_fa: 'src/SARS-CoV-2_WT.fa'
 primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
 

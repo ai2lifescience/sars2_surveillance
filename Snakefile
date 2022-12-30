@@ -64,7 +64,7 @@ rule qc:
     log: e = Plog + '/qc/{sample}.e', o = Plog + '/qc/{sample}.o'
     benchmark: Plog + '/qc/{sample}.bmk'
     resources: cpus=Dresources['qc_cpus']
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
         fastp --thread {resources.cpus} -i {input.r1} -I {input.r2} -h {output.html} -j {output.json} \\
             -o {output.trim_r1} -O {output.trim_r2} --unpaired1 {output.unpair_r1} --unpaired2 {output.unpair_r2} \\
@@ -85,7 +85,7 @@ rule map:
     log: e = Plog + '/map/{sample}.e', o = Plog + '/map/{sample}.o'
     benchmark: Plog + '/map/{sample}.bmk'
     resources: cpus=Dresources['map_cpus']
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
         # create sample specific genome fasta
         grep ">" {input.genome_fa} | sed "s/>.*/>{wildcards.sample}/g" > {output.smp_genome_fa}
@@ -113,7 +113,7 @@ rule rm_primer:
     params: 
         tmp=Pdedup + '/{sample}/{sample}_tmp',
         rmp_bam_prefix=Pdedup + '/{sample}/{sample}_rmPrimer'
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
     	samtools fixmate -m {input.sort_bam} {output.fix_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
         sambamba sort -o {output.fix_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {output.fix_bam} 1>>{log.o} 2>>{log.e}
@@ -127,7 +127,7 @@ rule dedup:
     log: e = Plog + '/dedup/{sample}.e', o = Plog + '/dedup/{sample}.o'
     benchmark: Plog + '/dedup/{sample}.bmk'
     resources: cpus=Dresources['dedup_cpus']
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
         sambamba markdup -r -t {resources.cpus} --overflow-list-size=500000 {input.rmp_sort_bam} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
         sambamba index -t {resources.cpus} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
@@ -144,7 +144,7 @@ rule mask_genome:
     log: e = Plog + '/mask_genome/{sample}.e', o = Plog + '/mask_genome/{sample}.o'
     benchmark: Plog + '/mask_genome/{sample}.bmk'
     resources: cpus=Dresources['mask_genome_cpus']
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
         bedtools genomecov -ibam {input.dedup_bam} -bga > {output.bedgraph} 2>>{log.e}
         awk -v cov={min_coverage} '$4<cov' {output.bedgraph} | bedtools merge -i - >{output.lowcov_bed} 2>>{log.e}
@@ -163,7 +163,7 @@ rule consensus:
     benchmark: Plog + '/consensus/{sample}.bmk'
     resources: cpus=Dresources['consensus_cpus']
     params: consensus_prifix=Pconsensus + '/{sample}/{sample}',
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
         lofreq indelqual {input.dedup_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
         samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
@@ -179,7 +179,7 @@ rule pangolin:
     benchmark: Plog + '/pangolin/{sample}.bmk'
     resources: cpus=Dresources['pangolin_cpus']
     params: pangolin_prifix=Plineage + '/{sample}/{sample}',
-    conda: 'envs/surveillance.yml'
+    conda: 'envs/surveillance.yaml'
     shell:"""
         pangolin {input.consensus_fa} \\
             --outfile {output.lineage_csv} -t {resources.cpus} 1>>{log.o} 2>>{log.e}
