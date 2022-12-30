@@ -1,25 +1,23 @@
-##################################
-### IO
-##################################
+# IO
 indir: 'test/rawdata'
 outdir: 'test/output'
 Lsample: ['test_Africa', 'test_BF7']
+
+# ref
 genome_fa: 'src/SARS-CoV-2_WT.fa'
 primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
 
-##################################
-### Config
-##################################
-min_coverage: 30
+# Config
+fq_cut_mean_qual: 20
+fq_min_len: 75
+min_coverage: 20
+min_allele_freq: 0.5
 
-##################################
-### Resources
-##################################
-Dresources:
-  qc_cpus: 8
-  map_cpus: 30
-  rm_primer_cpus: 30
-  dedup_cpus: 30
-  mask_genome_cpus: 30
-  consensus_cpus: 30
-  pangolin_cpus: 10
+# Resources
+qc_cpus: 8
+map_cpus: 30
+rm_primer_cpus: 30
+dedup_cpus: 30
+mask_genome_cpus: 30
+consensus_cpus: 30
+pangolin_cpus: 10
