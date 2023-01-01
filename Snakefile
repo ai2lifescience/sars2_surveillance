@@ -1,4 +1,4 @@
-import os,sys,time,shutil
+import os,sys,time,shutil,json
 configfile: 'sample_config/test.yaml'
 
 
@@ -6,11 +6,13 @@ configfile: 'sample_config/test.yaml'
 ######## Init
 ##############################
 Lsample=config['Lsample']
+batch_name=config['batch_name']
 
 # structure
 indir=config['indir']
 outdir=config['outdir']
 Plog=f'{outdir}/0log'
+Pstat=f'{outdir}/0stat'
 Pqc=f'{outdir}/1qc'
 Pmap=f'{outdir}/2map'
 Pdedup=f'{outdir}/3dedup'
@@ -42,11 +44,13 @@ rule all:
         dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample),
         mask_genome_fa = expand(Pconsensus + '/{sample}/{sample}_mask_genome.fa', sample=Lsample),
         consensus_fa = expand(Pconsensus + '/{sample}/{sample}_consensus.fa', sample=Lsample),
-        lineage_csv = expand(Plineage + '/{sample}/{sample}_lineage.csv', sample=Lsample)
+        lineage_csv = expand(Plineage + '/{sample}/{sample}_lineage.csv', sample=Lsample),
+        upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.csv', batch_name=batch_name),
+        merge_consensus_fa = expand(Pstat + '/{batch_name}_consensus.fa', batch_name=batch_name)
 
 
 ##################################
-### Rules
+### Upstream
 ##################################
 rule qc:
     input: 
@@ -178,6 +182,10 @@ rule consensus:
         cat {params.consensus_prifix}.fa | sed "s/^>.*/>{wildcards.sample}/g" > {output.consensus_fa} 2>>{log.e}
         """
 
+##################################
+### Downstream
+##################################
+
 rule pangolin:
     input: consensus_fa = rules.consensus.output.consensus_fa
     output: lineage_csv = Plineage + '/{sample}/{sample}_lineage.csv',
@@ -190,3 +198,42 @@ rule pangolin:
         pangolin {input.consensus_fa} \\
             --outfile {output.lineage_csv} -t {resources.cpus} 1>>{log.o} 2>>{log.e}
         """
+
+rule notebook_init:
+    input: 
+        upstream_stat_r='scripts/upstream_stat.r.ipynb'
+    output: 
+        upstream_stat_r=Plog + '/upstream_stat.r.ipynb'
+    resources: cpus=1
+    log: e = Plog + '/notebook_init.e', o = Plog + '/notebook_init.o'
+    run:
+        for k, f in input.items():
+            notebook = json.loads(open(f, 'r').read())
+            if f.endswith('.r.ipynb'):
+                notebook['metadata']['kernelspec']['name'] = 'ir'
+                notebook['metadata']['kernelspec']['display_name'] = 'R'
+            elif f.endswith('.py.ipynb'):
+                notebook['metadata']['kernelspec']['name'] = 'python3'
+                notebook['metadata']['kernelspec']['display_name'] = 'Python 3 (ipykernel)'
+            with open(output[k], 'w') as out:
+                json.dump(notebook, out)
+
+
+rule upstream_stat:
+    input:
+        Lqc = expand(rules.qc.output.json, sample=Lsample),
+        Lconsensus = expand(rules.consensus.output.consensus_fa, sample=Lsample),
+        Ldup_rate = expand(rules.dedup.log.e, sample=Lsample),
+        Lalign_rate = expand(rules.rm_primer.log.o, sample=Lsample),
+        upstream_stat_r = rules.notebook_init.output.upstream_stat_r
+    output: 
+        upstream_stat = Pstat + '/{batch_name}_upstream_stat.csv',
+        merge_consensus_fa = Pstat + '/{batch_name}_consensus.fa'
+    log: 
+        notebook = Plog + '/upstream_stat/{batch_name}.r.ipynb', 
+        e = Plog + '/upstream_stat/{batch_name}.e', 
+        o = Plog + '/upstream_stat/{batch_name}.o'
+    benchmark: Plog + '/upstream_stat/{batch_name}.bmk'
+    resources: cpus=config['upstream_stat_cpus']
+    conda: 'envs/jupyter.yaml'
+    notebook: rules.notebook_init.output.upstream_stat_r

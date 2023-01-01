@@ -2,6 +2,7 @@
 indir: 'test/rawdata'
 outdir: 'test/output'
 Lsample: ['test_Africa', 'test_BF7']
+batch_name: 'test'
 
 # ref
 genome_fa: 'src/SARS-CoV-2_WT.fa'
@@ -21,3 +22,4 @@ dedup_cpus: 30
 mask_genome_cpus: 30
 consensus_cpus: 30
 pangolin_cpus: 10
+upstream_stat_cpus: 2
