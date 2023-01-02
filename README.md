@@ -14,8 +14,8 @@ conda install snakemake
 snakemake -j 5 --use-conda
 ```
 - `j`: the number of jobs to run in parallel
-- The first run will create an anonymous conda environment, which includes all the software needed according to `envs/surveillance.yaml`. So you don't need any prepared environment.
-- The anonymous conda environment can be found by `conda env list`
+- The first run will create two anonymous conda environments, one of which includes softwares in `envs/surveillance.yaml`, the other includes softwares in `envs/jupyter.yaml`. So you don't need any prepared environment
+- The anonymous conda environments can be found by `conda env list`
 - The output of test data will be in `test/output`
 4. If you want to run on a computation server
 - For `slurm` system, to assign 4g memory for each CPU and run on `compute` partition, use
@@ -32,4 +32,14 @@ echo 'use-conda: TRUE' >> ~/.config/snakemake/my_smk_config/config.yaml
 - Then you can run pipeline by
 ```sh
 snakemake -j 5 --profile my_smk_config
+```
+
+
+## run pipeline for new sample batch
+
+1. Rename the rawdata into `{sample}_R1.fastq.gz` and `{sample}_R2.fastq.gz` just like the tests
+2. Copy the contents of `sample_config/test.yaml`, modify `indir`, `outdir`, `Lsample` (the sample names of this run batch), `batch_name` and so on. Save it into another file, `sample_config/new_batch.yaml` for example
+3. Assign the config file and run the pipeline by
+```sh
+snakemake -j 5 --profile my_smk_config --configfile sample_config/new_batch.yaml
 ```
