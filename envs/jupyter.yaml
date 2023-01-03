@@ -3,6 +3,9 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - libgcc-ng=12.2.0
+  - libblas=3.9.0
+  - liblapack=3.9.0
   - jupyter=1.0.0
   - jupyterlab=3.5.2
   - r-base=4.2.1
