@@ -6,7 +6,13 @@ Variants and Genomic Surveillance for SARS-CoV-2
 
 1. Install snakemake
 ```sh
-conda install snakemake
+conda install -c conda-forge -c bioconda snakemake
+```
+or
+```sh
+conda install -n base -c conda-forge mamba
+mamba create -c conda-forge -c bioconda -n snakemake snakemake
+conda activate snakemake
 ```
 2. Modify the `sample_config/test.yaml` to customize the pipeline parameters if you want
 3. Go back to the root directory where `Snakefile` in
