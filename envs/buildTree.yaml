@@ -1,0 +1,10 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - augur=17.0.0
+  - auspice=2.37.1
+  - nextalign=2.4.0
+  - nextclade=2.4.0
+  - nextstrain-cli=4.2.0
