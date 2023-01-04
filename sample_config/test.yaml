@@ -7,6 +7,11 @@ batch_name: 'test'
 # ref
 genome_fa: 'src/SARS-CoV-2_WT.fa'
 primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
+built_tree: 'src/sars-cov-2' # nextclade dataset get --name 'sars-cov-2' --output-dir 'src/sars-cov-2'
+root: 'src/reference_seq.gb'
+
+# rules
+tree_per_sequence: True
 
 # Config
 fq_cut_mean_qual: 20
@@ -23,3 +28,6 @@ mask_genome_cpus: 30
 consensus_cpus: 30
 pangolin_cpus: 10
 upstream_stat_cpus: 2
+tree_per_sequence_cpus: 10
+nextclade_cpus: 10
+angur_cpus: 10
