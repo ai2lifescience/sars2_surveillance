@@ -205,7 +205,6 @@ rule pangolin:
             --outfile {output.lineage_csv} -t {resources.cpus} 1>>{log.o} 2>>{log.e}
         """
 
-
 rule notebook_init:
     input: 
         upstream_stat_r='scripts/upstream_stat.r.ipynb'
@@ -245,6 +244,11 @@ rule upstream_stat:
     notebook: rules.notebook_init.output.upstream_stat_r
 
 rule nextclade:
+    message:
+        '''
+        Calling mutations
+        Adding consensus to the existing tree
+        '''
     input: consensus_fa = rules.upstream_stat.output.merge_consensus_fa
     output: 
         nextclade_info = Ptree + '/{batch_name}_nextclade.csv',
@@ -264,15 +268,19 @@ rule nextclade:
             {input.consensus_fa}
         """
 
-rule angur:
+rule augur:
+    message:
+        '''
+        Building a tree with only the consensus 
+        '''
     input: consensus_fa = rules.upstream_stat.output.merge_consensus_fa
     output: 
         index = Ptree + '/{batch_name}_sequence_index.tsv',
         alignment = Ptree + '/{batch_name}_aligned.fasta',
         tree = Ptree + '/{batch_name}_tree_raw.nwk',
-    log:  e = Plog + '/angur/{batch_name}.e', o = Plog + '/angur/{batch_name}.o'
-    benchmark: Plog + '/angur/{batch_name}.bmk'
-    resources: cpus=config['angur_cpus']
+    log:  e = Plog + '/augur/{batch_name}.e', o = Plog + '/augur/{batch_name}.o'
+    benchmark: Plog + '/augur/{batch_name}.bmk'
+    resources: cpus=config['augur_cpus']
     params: 
         reference = config['root'],
     conda: 'envs/buildTree.yaml'
@@ -288,5 +296,6 @@ rule angur:
             --fill-gaps
         augur tree \
             --alignment {output.alignment} \
+            --nthreads {resources.cpus} \
             --output {output.tree} 
         """
