@@ -8,14 +8,6 @@ import gzip
 import re
 
 
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
 
 def merge_lane(input_path):
 
@@ -31,7 +23,8 @@ def merge_lane(input_path):
     #print(sample_dic)
 
     output_path = input_path.parent / 'combine'
-    mkdir_p(output_path)
+    os.makedirs(output_path, exist_ok=True)
+
     for k, v in sample_dic.items():
 
         scr = [input_path / i for i in v]
@@ -49,6 +42,7 @@ def merge_lane(input_path):
 
 if __name__ == '__main__':
 
+    # create combine folder than merge sequencing file in Raw_data from each lane into it
     path = Path('/media/data/fuhaoyi/sequencing_data/20230103/Raw_Data')
     merge_lane(path)
 

@@ -64,6 +64,7 @@ def renamefiles(path):
 
 if __name__ == '__main__':
 
+    # print smaple name list
     path = Path('/media/data/fuhaoyi/sequencing_data/20221207/combine')
     sample_list = get_sample_list(path)
 
