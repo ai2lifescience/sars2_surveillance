@@ -19,6 +19,10 @@ conda activate snakemake
 ```sh
 snakemake -j 5 --use-conda
 ```
+or
+```sh
+snakemake -j 5 --use-conda --configfile your_configfile_path/new_batch.yaml
+```
 - `j`: the number of jobs to run in parallel
 - The first run will create two anonymous conda environments, one of which includes softwares in `envs/surveillance.yaml`, the other includes softwares in `envs/jupyter.yaml`. So you don't need any prepared environment
 - The anonymous conda environments can be found by `conda env list`
