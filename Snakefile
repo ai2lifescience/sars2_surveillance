@@ -102,12 +102,18 @@ rule map:
         grep ">" {input.genome_fa} | sed "s/>.*/>{wildcards.sample}/g" > {output.smp_genome_fa}
         awk 'NR>1{{printf "%s",$0}}' {input.genome_fa} >> {output.smp_genome_fa}
         
-        # map
-        bwa index {output.smp_genome_fa} 1>{log.o} 2>{log.e}
-        bwa mem -t {resources.cpus} -v 1 {output.smp_genome_fa} \\
-            {input.trim_r1} {input.trim_r2} -o {output.sam} 1>>{log.o} 2>>{log.e}
+        # map by bwa
+        # bwa index {output.smp_genome_fa} 1>{log.o} 2>{log.e}
+        # bwa mem -t {resources.cpus} -v 1 {output.smp_genome_fa} \\
+        # {input.trim_r1} {input.trim_r2} -o {output.sam} 1>>{log.o} 2>>{log.e}
+        # sambamba view --sam-input -o {output.bam} -f bam -t {resources.cpus} {output.sam} 1>>{log.o} 2>>{log.e}
+        # sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
+        
+        # map by minimap2
+        minimap2 -t {resources.cpus} -ax sr {output.smp_genome_fa} {input.trim_r1} {input.trim_r2} -o {output.sam} 1>{log.o} 2>{log.e}
         sambamba view --sam-input -o {output.bam} -f bam -t {resources.cpus} {output.sam} 1>>{log.o} 2>>{log.e}
         sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
+        
         """
 
 rule rm_primer:
