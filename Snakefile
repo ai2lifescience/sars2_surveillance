@@ -246,6 +246,7 @@ rule upstream_stat:
         Lconsensus = expand(rules.consensus.output.consensus_fa, sample=Lsample),
         Ldup_rate = expand(rules.dedup.log.e, sample=Lsample),
         Lalign_rate = expand(rules.rm_primer.log.o, sample=Lsample),
+        Lvariant_info = expand(rules.consensus.output.variant_info, sample=Lsample),
         upstream_stat_r = rules.notebook_init.output.upstream_stat_r
     output: 
         upstream_stat = Pstat + '/{batch_name}_upstream_stat.csv',
@@ -256,8 +257,10 @@ rule upstream_stat:
         o = Plog + '/upstream_stat/{batch_name}.o'
     benchmark: Plog + '/upstream_stat/{batch_name}.bmk'
     resources: cpus=config['upstream_stat_cpus']
+    params: high_altfreq_threshold=config['high_altfreq_threshold']
     conda: 'envs/jupyter.yaml'
     notebook: rules.notebook_init.output.upstream_stat_r
+
 
 rule nextclade:
     message:
@@ -315,3 +318,4 @@ rule augur:
             --nthreads {resources.cpus} \
             --output {output.tree} 
         """
+
