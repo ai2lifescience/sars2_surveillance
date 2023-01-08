@@ -172,26 +172,36 @@ rule mask_genome:
 rule consensus:
     input: 
         dedup_bam = rules.dedup.output.dedup_bam,
+        smp_genome_fa = rules.map.output.smp_genome_fa,
         mask_genome_fa = rules.mask_genome.output.mask_genome_fa
     output: 
         bqsr_bam = Pconsensus + '/{sample}/{sample}_bqsr.bam',
         pileup = Pconsensus + '/{sample}/{sample}.pileup',
+        variant_info = Pconsensus + '/{sample}/{sample}_variant_info.tsv',
         consensus_fa = Pconsensus + '/{sample}/{sample}_consensus.fa'
     log: e = Plog + '/consensus/{sample}.e', o = Plog + '/consensus/{sample}.o'
     benchmark: Plog + '/consensus/{sample}.bmk'
     resources: cpus=config['consensus_cpus']
     params: 
-        consensus_prifix=Pconsensus + '/{sample}/{sample}',
+        consensus_prefix=Pconsensus + '/{sample}/{sample}_consensus',
+        variant_info_prefix=Pconsensus + '/{sample}/{sample}_variant_info',
         min_coverage=config['min_coverage'],
         min_allele_freq=config['min_allele_freq']
     conda: 'envs/surveillance.yaml'
     shell:"""
         lofreq indelqual {input.dedup_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
         samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
-        samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} -o {output.pileup} 1>>{log.o} 2>>{log.e}
-        cat {output.pileup} | ivar consensus -p {params.consensus_prifix} \\
+        # mpileup
+        samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} \\
+            -o {output.pileup} 1>>{log.o} 2>>{log.e}
+        # variant info
+        cat {output.pileup} | ivar variants -p {params.variant_info_prefix} \\
+            -r {input.smp_genome_fa} \\
             -t {params.min_allele_freq} -m {params.min_coverage} 1>>{log.o} 2>>{log.e}
-        cat {params.consensus_prifix}.fa | sed "s/^>.*/>{wildcards.sample}/g" > {output.consensus_fa} 2>>{log.e}
+        # consensus
+        cat {output.pileup} | ivar consensus -p {params.consensus_prefix} \\
+            -t {params.min_allele_freq} -m {params.min_coverage} 1>>{log.o} 2>>{log.e}
+        sed -i "s/^>.*/>{wildcards.sample}/g" {output.consensus_fa} 1>>{log.o} 2>>{log.e}
         """
 
 ##################################
