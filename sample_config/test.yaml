@@ -4,13 +4,9 @@ outdir: 'test/output'
 Lsample: ['test_Africa', 'test_BF7']
 batch_name: 'test'
 
-# ref
-genome_fa: 'src/SARS-CoV-2_WT.fa'
-primer_bed: 'src/SARS-CoV-2_WT_primer.bed'
-built_tree: 'src/sars-cov-2' # nextclade dataset get --name 'sars-cov-2' --output-dir 'src/sars-cov-2'
-root: 'src/reference_seq.gb'
-
-# rules
+# Rules
+remove_primer: False # remove primer or not
+remove_duplication: False # remove duplication or not
 tree_per_sequence: False
 
 # Config
@@ -19,6 +15,13 @@ fq_min_len: 75
 min_coverage: 20
 min_allele_freq: 0.5
 high_altfreq_threshold: 0.6
+
+# ref
+genome_fa: 'src/SARS-CoV-2_WT.fa'
+primer_bed: 'src/ARTIC_primer.bed'
+built_tree: 'src/sars-cov-2' # nextclade dataset get --name 'sars-cov-2' --output-dir 'src/sars-cov-2'
+root: 'src/reference_seq.gb'
+
 
 # Resources
 qc_cpus: 8

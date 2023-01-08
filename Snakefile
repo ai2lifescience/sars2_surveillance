@@ -37,13 +37,6 @@ onstart:
 ##################################
 rule all:
     input:
-        trim_r1 = expand(Pqc + '/{sample}/{sample}_trim_R1.fastq.gz', sample=Lsample),
-        trim_r2 = expand(Pqc + '/{sample}/{sample}_trim_R2.fastq.gz', sample=Lsample),
-        smp_genome_fa = expand(Pmap + '/{sample}/{sample}_smp_genome.fa', sample=Lsample),
-        sort_bam = expand(Pmap + '/{sample}/{sample}_sort.bam', sample=Lsample),
-        rmp_sort_bam = expand(Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam', sample=Lsample),
-        dedup_bam = expand(Pdedup + '/{sample}/{sample}_dedup.bam', sample=Lsample),
-        mask_genome_fa = expand(Pconsensus + '/{sample}/{sample}_mask_genome.fa', sample=Lsample),
         consensus_fa = expand(Pconsensus + '/{sample}/{sample}_consensus.fa', sample=Lsample),
         lineage_csv = expand(Plineage + '/{sample}/{sample}_lineage.csv', sample=Lsample),
         upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.csv', batch_name=batch_name),
@@ -91,8 +84,7 @@ rule map:
     output:
         smp_genome_fa = Pmap + '/{sample}/{sample}_smp_genome.fa',
         sam = Pmap + '/{sample}/{sample}.sam',
-        bam = Pmap + '/{sample}/{sample}.bam',
-        sort_bam = Pmap + '/{sample}/{sample}_sort.bam',
+        bam = Pmap + '/{sample}/{sample}.bam'
     log: e = Plog + '/map/{sample}.e', o = Plog + '/map/{sample}.o'
     benchmark: Plog + '/map/{sample}.bmk'
     resources: cpus=config['map_cpus']
@@ -107,20 +99,18 @@ rule map:
         # bwa mem -t {resources.cpus} -v 1 {output.smp_genome_fa} \\
         # {input.trim_r1} {input.trim_r2} -o {output.sam} 1>>{log.o} 2>>{log.e}
         # sambamba view --sam-input -o {output.bam} -f bam -t {resources.cpus} {output.sam} 1>>{log.o} 2>>{log.e}
-        # sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
         
         # map by minimap2
         minimap2 -t {resources.cpus} -ax sr {output.smp_genome_fa} {input.trim_r1} {input.trim_r2} -o {output.sam} 1>{log.o} 2>{log.e}
         sambamba view --sam-input -o {output.bam} -f bam -t {resources.cpus} {output.sam} 1>>{log.o} 2>>{log.e}
-        sambamba sort -n -o {output.sort_bam} -t {resources.cpus} {output.bam} 1>>{log.o} 2>>{log.e}
-        
         """
 
 rule rm_primer:
     input: 
-        sort_bam = rules.map.output.sort_bam,
+        bam = rules.map.output.bam,
         primer_bed = config['primer_bed']
     output:
+        namesort_bam = Pmap + '/{sample}/{sample}_namesort.bam',
         fix_bam = Pdedup + '/{sample}/{sample}_fixmate.bam',
         fix_sort_bam = Pdedup + '/{sample}/{sample}_fixmate_sort.bam',
         rmp_sort_bam = Pdedup + '/{sample}/{sample}_rmPrimer_sort.bam',
@@ -129,12 +119,25 @@ rule rm_primer:
     resources: cpus=config['rm_primer_cpus']
     params: 
         tmp=Pdedup + '/{sample}/{sample}_tmp',
-        rmp_bam_prefix=Pdedup + '/{sample}/{sample}_rmPrimer'
+        rmp_bam_prefix=Pdedup + '/{sample}/{sample}_rmPrimer',
+        remove_primer=config['remove_primer']
     conda: 'envs/surveillance.yaml'
     shell:"""
-    	samtools fixmate -m {input.sort_bam} {output.fix_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
+        sambamba sort -n -o {output.namesort_bam} -t {resources.cpus} {input.bam} 1>{log.o} 2>{log.e}
+    	samtools fixmate -m {output.namesort_bam} {output.fix_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
         sambamba sort -o {output.fix_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {output.fix_bam} 1>>{log.o} 2>>{log.e}
-        ivar trim -i {output.fix_sort_bam} -b {input.primer_bed} -p {params.rmp_bam_prefix} -e 1>>{log.o} 2>>{log.e}
+        
+        # mapped reads stat
+        samtools idxstats {output.fix_sort_bam} | awk 'NR==1{{print "Mapped Reads: "$3}}' 1>>{log.o} 2>>{log.e}
+
+        # remove primer or not
+        if [ {params.remove_primer} = True ];
+        then
+            ivar trim -i {output.fix_sort_bam} -b {input.primer_bed} -p {params.rmp_bam_prefix} -e 1>>{log.o} 2>>{log.e}
+        else
+            cp {output.fix_sort_bam} {params.rmp_bam_prefix}.bam
+        fi
+
         sambamba sort -o {output.rmp_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} {params.rmp_bam_prefix}.bam 1>>{log.o} 2>>{log.e}
         """
 
@@ -144,9 +147,18 @@ rule dedup:
     log: e = Plog + '/dedup/{sample}.e', o = Plog + '/dedup/{sample}.o'
     benchmark: Plog + '/dedup/{sample}.bmk'
     resources: cpus=config['dedup_cpus']
+    params: remove_duplication=config['remove_duplication']
     conda: 'envs/surveillance.yaml'
     shell:"""
-        sambamba markdup -r -t {resources.cpus} --overflow-list-size=500000 {input.rmp_sort_bam} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
+        # remove duplication or not
+        if [ {params.remove_duplication} = True ];
+        then
+            sambamba markdup -r -t {resources.cpus} --overflow-list-size=500000 {input.rmp_sort_bam} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
+        else
+            # use the stderr to stat, but don't remove duplication
+            sambamba markdup -r -t {resources.cpus} --overflow-list-size=500000 {input.rmp_sort_bam} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
+            cp {input.rmp_sort_bam} {output.dedup_bam}
+        fi
         sambamba index -t {resources.cpus} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
         """
 
