@@ -52,7 +52,7 @@ def renamefiles(path):
 
     for i in filenames:
         oldname = path/i
-        newname = i.replace('_', '___')
+        newname = i.replace('fq', 'fastq')
         newname = path/newname
         print(oldname, newname)
         os.rename(oldname, newname)
@@ -60,11 +60,40 @@ def renamefiles(path):
     # filenames = os.listdir(path)
     # print(filenames)
 
+def move_files(input_path, output_path):
+    filenames, all_files, all_dirs = [], [], []
+    for root, dirs, files in os.walk(input_path):
+        for file in files:
+            filenames.append(file)
+            all_files.append(os.path.join(root, file))
+
+        for dir in dirs:
+            all_dirs.append(os.path.join(root, dir))
+    # print(filenames)
+    # print(all_files)
+
+    os.makedirs(output_path, exist_ok=True)
+    scr = all_files
+    it_scr = iter(scr)
+    dst = [output_path / i for i in filenames]
+    it_dst = iter(dst)
+
+    for i in range(len(scr)):
+        s = next(it_scr)
+        d = next(it_dst)
+
+        with open(s, 'rb') as rfp:
+            with open(d, 'wb') as wfp:
+                shutil.copyfileobj(rfp, wfp)
+
+        print(f'-----{i/len(scr):.2f}-----')
+        print('from:\n', s)
+        print('to:\n', d)
 
 
 if __name__ == '__main__':
 
-    # print smaple name list
+    # print sample name list
     path = Path('/media/data/fuhaoyi/sequencing_data/20221207/combine')
     sample_list = get_sample_list(path)
 
@@ -73,6 +102,17 @@ if __name__ == '__main__':
 
     path = Path('/media/data/fuhaoyi/sequencing_data/20230103/combine')
     sample_list = get_sample_list(path)
+
+
+    path = Path('/media/data/fuhaoyi/sequencing_data/20230108/'
+                'PM-XS01KF2022030268-173KA-北京昌平实验室94个外来混合pooling97个子文库包1条lane测序不过滤任务单/'
+                'ANNO_XS01KF2022030268_PM-XS01KF2022030268-173_2023-01-08_12-12-04_H3GGCDSX5/'
+                'Rawdata')
+    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230108/combine')
+    # if need
+    # move_files(path, outpath)
+    # renamefiles(outpath)
+    sample_list = get_sample_list(outpath)
 
 
 
