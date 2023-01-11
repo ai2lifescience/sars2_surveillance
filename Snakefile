@@ -208,6 +208,7 @@ rule consensus:
             1>>{log.o} 2>>{log.e}
         # consensus
         scripts/CallConsensusSequence -i {output.readcounts} -o {output.consensus_fa} 1>>{log.o} 2>>{log.e}
+        sed -i "s/^>.*/>{wildcards.sample}/g" {output.consensus_fa} 1>>{log.o} 2>>{log.e}
         """
 
 ##################################
