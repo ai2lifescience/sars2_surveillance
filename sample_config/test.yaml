@@ -12,9 +12,11 @@ tree_per_sequence: False
 # Config
 fq_cut_mean_qual: 20
 fq_min_len: 75
+trim_ends_left: 10
+trim_ends_right: 10
 min_coverage: 20
 min_allele_freq: 0.5
-high_altfreq_threshold: 0.6
+high_altfreq_threshold: 0.7
 
 # ref
 genome_fa: 'src/SARS-CoV-2_WT.fa'
@@ -28,6 +30,7 @@ qc_cpus: 8
 map_cpus: 30
 rm_primer_cpus: 30
 dedup_cpus: 30
+trim_ends_cpus: 30
 mask_genome_cpus: 30
 consensus_cpus: 30
 pangolin_cpus: 10

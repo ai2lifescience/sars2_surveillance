@@ -162,9 +162,31 @@ rule dedup:
         sambamba index -t {resources.cpus} {output.dedup_bam} 1>>{log.o} 2>>{log.e}
         """
 
+rule trim_ends:
+    input: dedup_bam = rules.dedup.output.dedup_bam
+    output: 
+        trim_bam = Pdedup + '/{sample}/{sample}_trim.bam',
+        trim_sort_bam = Pdedup + '/{sample}/{sample}_trim_sort.bam'
+    log: e = Plog + '/trim_ends/{sample}.e', o = Plog + '/trim_ends/{sample}.o'
+    benchmark: Plog + '/trim_ends/{sample}.bmk'
+    resources: cpus=config['trim_ends_cpus']
+    params: 
+        tmp=Pdedup + '/{sample}/{sample}_tmp',
+        trim_ends_left=config['trim_ends_left'],
+        trim_ends_right=config['trim_ends_right']
+    conda: 'envs/surveillance.yaml'
+    shell:"""
+        bam trimBam {input.dedup_bam} {output.trim_bam} \\
+            -L {params.trim_ends_left} -R {params.trim_ends_right} -c 1>{log.o} 2>{log.e}
+        sambamba sort -o {output.trim_sort_bam} --tmpdir {params.tmp} -t {resources.cpus} \\
+            {output.trim_bam} 1>>{log.o} 2>>{log.e}
+        sambamba index -t {resources.cpus} {output.trim_sort_bam} 1>>{log.o} 2>>{log.e}
+    """
+
+
 rule mask_genome:
     input: 
-        dedup_bam = rules.dedup.output.dedup_bam,
+        trim_sort_bam = rules.trim_ends.output.trim_sort_bam,
         smp_genome_fa = rules.map.output.smp_genome_fa
     output: 
         bedgraph = Pconsensus + '/{sample}/{sample}.bedgraph',
@@ -176,14 +198,14 @@ rule mask_genome:
     params: min_coverage=config['min_coverage']
     conda: 'envs/surveillance.yaml'
     shell:"""
-        bedtools genomecov -ibam {input.dedup_bam} -bga > {output.bedgraph} 2>>{log.e}
+        bedtools genomecov -ibam {input.trim_sort_bam} -bga > {output.bedgraph} 2>>{log.e}
         awk -v cov={params.min_coverage} '$4<cov' {output.bedgraph} | bedtools merge -i - >{output.lowcov_bed} 2>>{log.e}
         bedtools maskfasta -fi {input.smp_genome_fa} -bed {output.lowcov_bed} -fo {output.mask_genome_fa} 1>>{log.o} 2>>{log.e}
         """
 
 rule consensus:
     input: 
-        dedup_bam = rules.dedup.output.dedup_bam,
+        trim_sort_bam = rules.trim_ends.output.trim_sort_bam,
         smp_genome_fa = rules.map.output.smp_genome_fa,
         mask_genome_fa = rules.mask_genome.output.mask_genome_fa
     output: 
@@ -201,7 +223,7 @@ rule consensus:
         min_allele_freq=config['min_allele_freq']
     conda: 'envs/surveillance.yaml'
     shell:"""
-        lofreq indelqual {input.dedup_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
+        lofreq indelqual {input.trim_sort_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
         samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
         # mpileup
         samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} \\
