@@ -184,34 +184,12 @@ rule trim_ends:
     """
 
 
-rule mask_genome:
-    input: 
-        trim_sort_bam = rules.trim_ends.output.trim_sort_bam,
-        smp_genome_fa = rules.map.output.smp_genome_fa
-    output: 
-        bedgraph = Pconsensus + '/{sample}/{sample}.bedgraph',
-        lowcov_bed = Pconsensus + '/{sample}/{sample}_lowcov.bed',
-        mask_genome_fa = Pconsensus + '/{sample}/{sample}_mask_genome.fa'
-    log: e = Plog + '/mask_genome/{sample}.e', o = Plog + '/mask_genome/{sample}.o'
-    benchmark: Plog + '/mask_genome/{sample}.bmk'
-    resources: cpus=config['mask_genome_cpus']
-    params: min_coverage=config['min_coverage']
-    conda: 'envs/surveillance.yaml'
-    shell:"""
-        bedtools genomecov -ibam {input.trim_sort_bam} -bga > {output.bedgraph} 2>>{log.e}
-        awk -v cov={params.min_coverage} '$4<cov' {output.bedgraph} | bedtools merge -i - >{output.lowcov_bed} 2>>{log.e}
-        bedtools maskfasta -fi {input.smp_genome_fa} -bed {output.lowcov_bed} -fo {output.mask_genome_fa} 1>>{log.o} 2>>{log.e}
-        """
-
 rule consensus:
     input: 
-        trim_sort_bam = rules.trim_ends.output.trim_sort_bam,
-        smp_genome_fa = rules.map.output.smp_genome_fa,
-        mask_genome_fa = rules.mask_genome.output.mask_genome_fa
+        trim_sort_bam = rules.trim_ends.output.trim_sort_bam
     output: 
-        bqsr_bam = Pconsensus + '/{sample}/{sample}_bqsr.bam',
         pileup = Pconsensus + '/{sample}/{sample}.pileup',
-        variant_info = Pconsensus + '/{sample}/{sample}_variant_info.tsv',
+        readcounts = Pconsensus + '/{sample}/{sample}.readcounts',
         consensus_fa = Pconsensus + '/{sample}/{sample}_consensus.fa'
     log: e = Plog + '/consensus/{sample}.e', o = Plog + '/consensus/{sample}.o'
     benchmark: Plog + '/consensus/{sample}.bmk'
@@ -223,19 +201,13 @@ rule consensus:
         min_allele_freq=config['min_allele_freq']
     conda: 'envs/surveillance.yaml'
     shell:"""
-        lofreq indelqual {input.trim_sort_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
-        samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
         # mpileup
-        samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} \\
-            -o {output.pileup} 1>>{log.o} 2>>{log.e}
-        # variant info
-        cat {output.pileup} | ivar variants -p {params.variant_info_prefix} \\
-            -r {input.smp_genome_fa} \\
-            -t {params.min_allele_freq} -m {params.min_coverage} 1>>{log.o} 2>>{log.e}
+        samtools mpileup -aa -A -d 0 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>{log.e}
+        # readcounts
+        varscan readcounts {output.pileup} --output-file {output.readcounts} \\
+            1>>{log.o} 2>>{log.e}
         # consensus
-        cat {output.pileup} | ivar consensus -p {params.consensus_prefix} \\
-            -t {params.min_allele_freq} -m {params.min_coverage} 1>>{log.o} 2>>{log.e}
-        sed -i "s/^>.*/>{wildcards.sample}/g" {output.consensus_fa} 1>>{log.o} 2>>{log.e}
+        scripts/CallConsensusSequence -i {output.readcounts} -o {output.consensus_fa} 1>>{log.o} 2>>{log.e}
         """
 
 ##################################
@@ -280,7 +252,7 @@ rule upstream_stat:
         Lconsensus = expand(rules.consensus.output.consensus_fa, sample=Lsample),
         Ldup_rate = expand(rules.dedup.log.e, sample=Lsample),
         Lalign_rate = expand(rules.rm_primer.log.o, sample=Lsample),
-        Lvariant_info = expand(rules.consensus.output.variant_info, sample=Lsample),
+        # Lvariant_info = expand(rules.consensus.output.variant_info, sample=Lsample),
         upstream_stat_r = rules.notebook_init.output.upstream_stat_r
     output: 
         upstream_stat = Pstat + '/{batch_name}_upstream_stat.csv',
