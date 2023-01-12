@@ -53,3 +53,6 @@ snakemake -j 5 --profile my_smk_config
 ```sh
 snakemake -j 5 --profile my_smk_config --configfile sample_config/new_batch.yaml
 ```
+
+## Credit and Acknowledgements
+- The script to convert variants.tsv files into .vcf files was obtained from: https://github.com/nf-core/viralrecon/blob/dev/bin/ivar_variants_to_vcf.py
