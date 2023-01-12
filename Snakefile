@@ -226,7 +226,7 @@ rule consensus:
         lofreq indelqual {input.trim_sort_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
         samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
         
-        lofreq call-parallel --pp-threads {resources.cpus} -f {input.mask_genome_fa} \\
+        lofreq call-parallel --call-indels --pp-threads {resources.cpus} -f {input.mask_genome_fa} \\
             -o {output.vcf} {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
         lofreq filter -i {output.vcf} -o {output.flt_vcf} --af-min {params.min_allele_freq} \\
             --cov-min {params.min_coverage} 1>>{log.o} 2>>{log.e}
