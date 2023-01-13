@@ -53,6 +53,12 @@ def renamefiles(path):
     for i in filenames:
         oldname = path/i
         newname = i.replace('fq', 'fastq')
+        newname = newname.replace('_1', '_R1')
+        newname = newname.replace('_2', '_R2')
+        newname = newname.replace('_L5', '')
+
+
+
         newname = path/newname
         print(oldname, newname)
         os.rename(oldname, newname)
@@ -96,14 +102,14 @@ if __name__ == '__main__':
     # # print sample name list
     # path = Path('/media/data/fuhaoyi/sequencing_data/20221207/combine')
     # sample_list = get_sample_list(path)
-    #
+
     # path = Path('/media/data/fuhaoyi/sequencing_data/20221211/combine')
     # sample_list = get_sample_list(path)
-    #
+
     # path = Path('/media/data/fuhaoyi/sequencing_data/20230103/combine')
     # sample_list = get_sample_list(path)
-    #
-    #
+
+
     # path = Path('/media/data/fuhaoyi/sequencing_data/20230108/'
     #             'PM-XS01KF2022030268-173KA-北京昌平实验室94个外来混合pooling97个子文库包1条lane测序不过滤任务单/'
     #             'ANNO_XS01KF2022030268_PM-XS01KF2022030268-173_2023-01-08_12-12-04_H3GGCDSX5/'
@@ -115,15 +121,19 @@ if __name__ == '__main__':
     # sample_list = get_sample_list(outpath)
 
 
-    path = Path('/media/data/fuhaoyi/sequencing_data/20230109/'
-                'ANNO_XS01KF2022030268_PM-XS01KF2022030268-174_2023-01-09_17-05-28_H3GGCDSX5/'
-                'Rawdata')
-    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230109/combine')
-    # if need
-    # move_files(path, outpath)
-    # renamefiles(outpath)
-    sample_list = get_sample_list(outpath)
+    # path = Path('/media/data/fuhaoyi/sequencing_data/20230109/'
+    #             'ANNO_XS01KF2022030268_PM-XS01KF2022030268-174_2023-01-09_17-05-28_H3GGCDSX5/'
+    #             'Rawdata')
+    # outpath = Path('/media/data/fuhaoyi/sequencing_data/20230109/combine')
+    # # if need
+    # # move_files(path, outpath)
+    # # renamefiles(outpath)
+    # sample_list = get_sample_list(outpath)
 
+
+    path = Path('/media/data/fuhaoyi/sequencing_data/20230109_2/combine')
+    #renamefiles(path)
+    sample_list = get_sample_list(path)
 
 
 
