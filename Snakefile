@@ -206,21 +206,25 @@ rule mask_genome:
 rule consensus:
     input: 
         trim_sort_bam = rules.trim_ends.output.trim_sort_bam,
-        smp_genome_fa = rules.map.output.smp_genome_fa,
         mask_genome_fa = rules.mask_genome.output.mask_genome_fa
     output: 
         bqsr_bam = Pconsensus + '/{sample}/{sample}_bqsr.bam',
         pileup = Pconsensus + '/{sample}/{sample}.pileup',
         variant_info = Pconsensus + '/{sample}/{sample}_variant_info.tsv',
+        delmask_bed = Pconsensus + '/{sample}/{sample}_delmask.bed',
+        delmask_genome_fa = Pconsensus + '/{sample}/{sample}_delmask_genome.fa',
+        vcf = Pconsensus + '/{sample}/{sample}.vcf',
+        vcf_gz = Pconsensus + '/{sample}/{sample}.vcf.gz',
+        sort_vcf_gz = Pconsensus + '/{sample}/{sample}_sort.vcf.gz',
         consensus_fa = Pconsensus + '/{sample}/{sample}_consensus.fa'
     log: e = Plog + '/consensus/{sample}.e', o = Plog + '/consensus/{sample}.o'
     benchmark: Plog + '/consensus/{sample}.bmk'
     resources: cpus=config['consensus_cpus']
     params: 
-        consensus_prefix=Pconsensus + '/{sample}/{sample}_consensus',
         variant_info_prefix=Pconsensus + '/{sample}/{sample}_variant_info',
         min_coverage=config['min_coverage'],
-        min_allele_freq=config['min_allele_freq']
+        min_allele_freq=config['min_allele_freq'],
+        ivar2vcf='scripts/ivar_variants_to_vcf.py'
     conda: 'envs/surveillance.yaml'
     shell:"""
         lofreq indelqual {input.trim_sort_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
@@ -230,12 +234,22 @@ rule consensus:
             -o {output.pileup} 1>>{log.o} 2>>{log.e}
         # variant info
         cat {output.pileup} | ivar variants -p {params.variant_info_prefix} \\
-            -r {input.smp_genome_fa} \\
+            -r {input.mask_genome_fa} \\
             -t {params.min_allele_freq} -m {params.min_coverage} 1>>{log.o} 2>>{log.e}
+
+        # mask deletion part to fix the ivar deletion -NNNN
+        awk '{{OFS="\t"}}$4~/^-/{{print $1,$2,$2+length($4)-1}}' {output.variant_info} > {output.delmask_bed} 2>>{log.e}
+        bedtools maskfasta -fi {input.mask_genome_fa} -bed {output.delmask_bed} -fo {output.delmask_genome_fa} 1>>{log.o} 2>>{log.e}
+
+        # vcf
+        python {params.ivar2vcf} -f {output.delmask_genome_fa} {output.variant_info} {output.vcf} 1>>{log.o} 2>>{log.e}
+        bgzip -c {output.vcf} >{output.vcf_gz} 2>>{log.e}
+        bcftools sort -O z -o {output.sort_vcf_gz} {output.vcf_gz} 1>>{log.o} 2>>{log.e}
+        tabix {output.sort_vcf_gz} 1>>{log.o} 2>>{log.e}
+
         # consensus
-        cat {output.pileup} | ivar consensus -p {params.consensus_prefix} \\
-            -t {params.min_allele_freq} -m {params.min_coverage} 1>>{log.o} 2>>{log.e}
-        sed -i "s/^>.*/>{wildcards.sample}/g" {output.consensus_fa} 1>>{log.o} 2>>{log.e}
+        bcftools consensus -f {output.delmask_genome_fa} {output.sort_vcf_gz} \\
+            -o {output.consensus_fa} 1>>{log.o} 2>>{log.e}
         """
 
 ##################################

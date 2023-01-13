@@ -14,3 +14,5 @@ dependencies:
   - bcftools=1.16
   - bamutil=1.0.15
   - pangolin=4.1.3
+  - biopython=1.74
+  - scipy=1.10.0
