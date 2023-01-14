@@ -1,0 +1,39 @@
+# IO
+indir: 'test/rawdata'
+outdir: 'test/output'
+Lsample: ['test_igenetech1', 'test_igenetech2']
+batch_name: 'test_igenetech'
+
+# Rules
+remove_primer: True # remove primer or not
+remove_duplication: False # remove duplication or not
+tree_per_sequence: False
+
+# Config
+fq_cut_mean_qual: 20
+fq_min_len: 75
+trim_ends_left: 10
+trim_ends_right: 10
+min_coverage: 20
+min_allele_freq: 0.5
+high_altfreq_threshold: 0.7
+
+# ref
+genome_fa: 'src/SARS-CoV-2_WT.fa'
+primer_bed: 'src/iGeneTech_primer.bed'
+built_tree: 'src/sars-cov-2' # nextclade dataset get --name 'sars-cov-2' --output-dir 'src/sars-cov-2'
+root: 'src/reference_seq.gb'
+
+
+# Resources
+qc_cpus: 8
+map_cpus: 30
+rm_primer_cpus: 30
+dedup_cpus: 30
+trim_ends_cpus: 30
+mask_genome_cpus: 30
+consensus_cpus: 30
+pangolin_cpus: 10
+upstream_stat_cpus: 2
+nextclade_cpus: 10
+augur_cpus: 10
