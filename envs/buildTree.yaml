@@ -8,3 +8,4 @@ dependencies:
   - nextalign=2.4.0
   - nextclade=2.4.0
   - nextstrain-cli=4.2.0
+  - pangolin=4.1.3
