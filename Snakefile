@@ -263,7 +263,7 @@ rule pangolin:
     benchmark: Plog + '/pangolin/{sample}.bmk'
     resources: cpus=config['pangolin_cpus']
     params: pangolin_prifix=Plineage + '/{sample}/{sample}',
-    conda: 'envs/surveillance.yaml'
+    conda: 'envs/buildTree.yaml'
     shell:"""
         pangolin {input.consensus_fa} \\
             --outfile {output.lineage_csv} -t {resources.cpus} 1>>{log.o} 2>>{log.e}
@@ -366,4 +366,42 @@ rule augur:
             --nthreads {resources.cpus} \
             --output {output.tree} 
         """
+
+
+rule detect_contamination:
+    message:
+        '''
+         detect cross contamination by sample allele frequency
+        '''
+    input:
+        trim_sort_bam=rules.trim_ends.output.trim_sort_bam
+    output:
+        pileup=Pconsensus + '/{sample}/{sample}.pileup',
+        readcounts=Pconsensus + '/{sample}/{sample}.readcounts',
+        consensus_varscan=Pconsensus + '/{sample}/{sample}_consensus.varscan'
+    log: e=Plog + '/consensus/{sample}.e',o=Plog + '/consensus/{sample}.o'
+    resources: cpus=config['consensus_cpus']
+    params:
+        min_coverage=config['min_coverage'],
+        min_allele_freq=config['min_allele_freq']
+    conda: 'envs/detect_contamination.yaml'
+    shell:
+        """
+        # using varscan to call consensus and variants from an mpileup file
+        # mpileup
+        samtools mpileup -aa -A -d 0 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
+        # readcounts
+        varscan readcounts {output.pileup} --output-file {output.readcounts} \\
+            1>>{log.o} 2>>{log.e}
+        # consensus
+        varscan mpileup2cns {output.pileup} --min-var-freq {params.min_allele_freq} \\
+                                            --min-coverage {params.min_coverage} \\
+         1>{output.consensus_varscan} 2>>{log.e}
+         
+         # detect cross contamination 
+        """
+
+
+
+
 

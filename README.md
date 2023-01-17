@@ -14,6 +14,10 @@ conda install -n base -c conda-forge mamba
 mamba create -c conda-forge -c bioconda -n snakemake snakemake
 conda activate snakemake
 ```
+Strict channel priority can dramatically speed up conda operations and also reduce package incompatibility problems.
+```sh
+conda config --set channel_priority strict
+```
 2. Modify the `sample_config/test.yaml` to customize the pipeline parameters if you want
 3. Go back to the root directory where `Snakefile` in
 ```sh
