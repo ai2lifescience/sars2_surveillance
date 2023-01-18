@@ -15,3 +15,5 @@ dependencies:
   - bamutil=1.0.15
   - biopython=1.80
   - scipy=1.10.0
+  - varscan=2.4.4
+

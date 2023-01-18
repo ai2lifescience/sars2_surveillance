@@ -19,7 +19,8 @@ Pdedup=f'{outdir}/3dedup'
 Pconsensus=f'{outdir}/4consensus'
 Plineage=f'{outdir}/5lineage'
 Ptree=f'{outdir}/6tree'
-
+Pvarscan=f'{outdir}/7varscan'
+Pcontam=f'{outdir}/8contamination'
 
 for p in [Pqc,Pmap]: 
     os.makedirs(p, exist_ok=True)
@@ -45,7 +46,9 @@ rule all:
         tree_json = expand(Ptree + '/{batch_name}.auspice.json',batch_name=batch_name),
         index = expand(Ptree + '/{batch_name}_sequence_index.tsv',batch_name=batch_name),
         alignment = expand(Ptree + '/{batch_name}_aligned.fasta',batch_name=batch_name),
-        tree = expand(Ptree + '/{batch_name}_tree_raw.nwk',batch_name=batch_name)   
+        tree = expand(Ptree + '/{batch_name}_tree_raw.nwk',batch_name=batch_name),
+        readcounts= expand(Pvarscan + '/{sample}/{sample}.readcounts',sample=Lsample),
+        dcontam = expand(Pcontam + '/{sample}/{sample}.readcounts',sample=Lsample),
 
 
 ##################################
@@ -368,23 +371,18 @@ rule augur:
         """
 
 
-rule detect_contamination:
-    message:
-        '''
-         detect cross contamination by sample allele frequency
-        '''
+rule varscan_consencus:
     input:
         trim_sort_bam=rules.trim_ends.output.trim_sort_bam
     output:
-        pileup=Pconsensus + '/{sample}/{sample}.pileup',
-        readcounts=Pconsensus + '/{sample}/{sample}.readcounts',
-        consensus_varscan=Pconsensus + '/{sample}/{sample}_consensus.varscan'
-    log: e=Plog + '/consensus/{sample}.e',o=Plog + '/consensus/{sample}.o'
-    resources: cpus=config['consensus_cpus']
+        pileup=Pvarscan + '/{sample}/{sample}.pileup',
+        readcounts=Pvarscan + '/{sample}/{sample}.readcounts',
+        consensus_varscan=Pvarscan + '/{sample}/{sample}_consensus.varscan'
+    log: e=Plog + '/varscan_consencus/{sample}.e',o=Plog + '/varscan_consencus/{sample}.o'
     params:
         min_coverage=config['min_coverage'],
         min_allele_freq=config['min_allele_freq']
-    conda: 'envs/detect_contamination.yaml'
+    conda: 'envs/surveillance.yaml'
     shell:
         """
         # using varscan to call consensus and variants from an mpileup file
@@ -401,7 +399,37 @@ rule detect_contamination:
          # detect cross contamination 
         """
 
+rule detect_contamination:
+    message:
+        '''
+         detect cross contamination by sample allele frequency
+        '''
+    input:
+        trim_sort_bam=rules.trim_ends.output.trim_sort_bam
+    output:
+        pileup=Pcontam + '/{sample}/{sample}.pileup',
+        readcounts=Pcontam + '/{sample}/{sample}.readcounts',
+        consensus_varscan=Pcontam + '/{sample}/{sample}_consensus.varscan'
+    log: e=Plog + '/contamination/{sample}.e',o=Plog + '/contamination/{sample}.o'
+    params:
+        min_coverage=config['min_coverage'],
+        min_allele_freq=config['min_allele_freq']
+    conda: 'envs/detect_contamination.yaml'
+    shell:
+        """
+        # using varscan to call consensus and variants from an mpileup file
+        # mpileup
+        samtools mpileup -aa -A -d 0 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
+        # readcounts
+        varscan readcounts {output.pileup} --output-file {output.readcounts} \\
+            1>>{log.o} 2>>{log.e}
+        # consensus
+        varscan mpileup2cns {output.pileup} --min-var-freq {params.min_allele_freq} \\
+                                            --min-coverage {params.min_coverage} \\
+         1>{output.consensus_varscan} 2>>{log.e}
 
+         # detect cross contamination 
+        """
 
 
 
