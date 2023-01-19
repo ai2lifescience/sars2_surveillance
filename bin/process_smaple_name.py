@@ -139,7 +139,7 @@ if __name__ == '__main__':
     path = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate'
                 '/ANNO_XS01KF2022030268_PM-XS01KF2022030268-175_2023-01-10_13-16-08_H2CFYDSX5'
                 '/Rawdata')
-    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate/combine26')
+    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate/combine26/combine')
     # if need
     # move_files(path, outpath)
     # renamefiles(outpath)
@@ -148,9 +148,9 @@ if __name__ == '__main__':
     path = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate'
                 '/ANNO_XS01KF2022030268_PM-XS01KF2022030268-177_2023-01-10_14-51-24_HGVK2DSX5'
                 '/Rawdata')
-    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate/combine83')
+    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate/combine83/combine')
     # if need
     # move_files(path, outpath)
     # renamefiles(outpath)
-    #sample_list = get_sample_list(outpath)
+    sample_list = get_sample_list(outpath)
 
