@@ -233,7 +233,7 @@ rule consensus:
         lofreq indelqual {input.trim_sort_bam} --dindel -f {input.mask_genome_fa} -o {output.bqsr_bam} 1>>{log.o} 2>>{log.e}
         samtools index {output.bqsr_bam} -@ {resources.cpus} 1>>{log.o} 2>>{log.e}
         # mpileup
-        samtools mpileup -aa -A -d 0 -Q 0 {output.bqsr_bam} \\
+        samtools mpileup -aa -A -d 99999999 -Q 0 {output.bqsr_bam} \\
             -o {output.pileup} 1>>{log.o} 2>>{log.e}
         # variant info
         cat {output.pileup} | ivar variants -p {params.variant_info_prefix} \\
@@ -387,7 +387,7 @@ rule varscan_consencus:
         """
         # using varscan to call consensus and variants from an mpileup file
         # mpileup
-        samtools mpileup -aa -A -d 0 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
+        samtools mpileup -aa -A -d 99999999 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
         # readcounts
         varscan readcounts {output.pileup} --output-file {output.readcounts} \\
             1>>{log.o} 2>>{log.e}
@@ -419,7 +419,7 @@ rule detect_contamination:
         """
         # using varscan to call consensus and variants from an mpileup file
         # mpileup
-        samtools mpileup -aa -A -d 0 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
+        samtools mpileup -aa -A -d 99999999 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
         # readcounts
         varscan readcounts {output.pileup} --output-file {output.readcounts} \\
             1>>{log.o} 2>>{log.e}

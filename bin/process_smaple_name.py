@@ -53,9 +53,9 @@ def renamefiles(path):
     for i in filenames:
         oldname = path/i
         newname = i.replace('fq', 'fastq')
-        newname = newname.replace('_1', '_R1')
-        newname = newname.replace('_2', '_R2')
-        newname = newname.replace('_L5', '')
+        # newname = newname.replace('_1', '_R1')
+        # newname = newname.replace('_2', '_R2')
+        # newname = newname.replace('_L5', '')
 
 
 
@@ -131,12 +131,26 @@ if __name__ == '__main__':
     # sample_list = get_sample_list(outpath)
 
 
-    path = Path('/media/data/fuhaoyi/sequencing_data/20230109_2/combine')
-    #renamefiles(path)
-    sample_list = get_sample_list(path)
+    # path = Path('/media/data/fuhaoyi/sequencing_data/20230109_2/combine')
+    # #renamefiles(path)
+    # sample_list = get_sample_list(path)
 
 
+    path = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate'
+                '/ANNO_XS01KF2022030268_PM-XS01KF2022030268-175_2023-01-10_13-16-08_H2CFYDSX5'
+                '/Rawdata')
+    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate/combine26')
+    # if need
+    # move_files(path, outpath)
+    # renamefiles(outpath)
+    sample_list = get_sample_list(outpath)
 
-
-
+    path = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate'
+                '/ANNO_XS01KF2022030268_PM-XS01KF2022030268-177_2023-01-10_14-51-24_HGVK2DSX5'
+                '/Rawdata')
+    outpath = Path('/media/data/fuhaoyi/sequencing_data/20230110_contaminate/combine83')
+    # if need
+    # move_files(path, outpath)
+    # renamefiles(outpath)
+    #sample_list = get_sample_list(outpath)
 
