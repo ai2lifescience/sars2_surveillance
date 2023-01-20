@@ -373,9 +373,8 @@ rule augur:
 
 rule varscan_consencus:
     input:
-        trim_sort_bam=rules.trim_ends.output.trim_sort_bam
+        pileup=rules.consensus.output.pileup
     output:
-        pileup=Pvarscan + '/{sample}/{sample}.pileup',
         readcounts=Pvarscan + '/{sample}/{sample}.readcounts',
         consensus_varscan=Pvarscan + '/{sample}/{sample}_consensus.varscan'
     log: e=Plog + '/varscan_consencus/{sample}.e',o=Plog + '/varscan_consencus/{sample}.o'
@@ -386,13 +385,11 @@ rule varscan_consencus:
     shell:
         """
         # using varscan to call consensus and variants from an mpileup file
-        # mpileup
-        samtools mpileup -aa -A -d 99999999 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
         # readcounts
-        varscan readcounts {output.pileup} --output-file {output.readcounts} \\
+        varscan readcounts {input.pileup} --output-file {output.readcounts} \\
             1>>{log.o} 2>>{log.e}
         # consensus
-        varscan mpileup2cns {output.pileup} --min-var-freq {params.min_allele_freq} \\
+        varscan mpileup2cns {input.pileup} --min-var-freq {params.min_allele_freq} \\
                                             --min-coverage {params.min_coverage} \\
          1>{output.consensus_varscan} 2>>{log.e}
          
@@ -405,9 +402,9 @@ rule detect_contamination:
          detect cross contamination by sample allele frequency
         '''
     input:
-        trim_sort_bam=rules.trim_ends.output.trim_sort_bam
+        pileup = rules.consensus.output.pileup
+
     output:
-        pileup=Pcontam + '/{sample}/{sample}.pileup',
         readcounts=Pcontam + '/{sample}/{sample}.readcounts',
         consensus_varscan=Pcontam + '/{sample}/{sample}_consensus.varscan'
     log: e=Plog + '/contamination/{sample}.e',o=Plog + '/contamination/{sample}.o'
@@ -418,13 +415,11 @@ rule detect_contamination:
     shell:
         """
         # using varscan to call consensus and variants from an mpileup file
-        # mpileup
-        samtools mpileup -aa -A -d 99999999 -Q 0 {input.trim_sort_bam} -o {output.pileup} 1>{log.o} 2>>{log.e}
         # readcounts
-        varscan readcounts {output.pileup} --output-file {output.readcounts} \\
+        varscan readcounts {input.pileup} --output-file {output.readcounts} \\
             1>>{log.o} 2>>{log.e}
         # consensus
-        varscan mpileup2cns {output.pileup} --min-var-freq {params.min_allele_freq} \\
+        varscan mpileup2cns {input.pileup} --min-var-freq {params.min_allele_freq} \\
                                             --min-coverage {params.min_coverage} \\
          1>{output.consensus_varscan} 2>>{log.e}
 
