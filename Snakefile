@@ -41,7 +41,7 @@ rule all:
         merge_consensus_fa = expand(Pstat + '/{batch_name}_consensus.fa', batch_name=batch_name),
         tree_json = expand(Pnextclade + '/{batch_name}.auspice.json',batch_name=batch_name),
         nextclade_csv = expand(Pnextclade + '/{batch_name}_nextclade.csv',batch_name=batch_name),
-        upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.csv', batch_name=batch_name),
+        upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.tsv', batch_name=batch_name),
         alignment = expand(Pnextclade + '/{batch_name}_aligned.fasta',batch_name=batch_name),
         tree = expand(Pnextclade + '/{batch_name}_tree_raw.nwk',batch_name=batch_name),
         readcounts= expand(Pvarscan + '/{sample}/{sample}.readcounts',sample=Lsample),
@@ -317,14 +317,13 @@ rule nextclade:
 rule upstream_stat:
     input:
         Lqc = expand(rules.qc.output.json, sample=Lsample),
-        Lconsensus = expand(rules.consensus.output.consensus_fa, sample=Lsample),
         Ldup_rate = expand(rules.dedup.log.e, sample=Lsample),
         Lalign_rate = expand(rules.rm_primer.log.o, sample=Lsample),
         Lvariant_info = expand(rules.consensus.output.variant_info, sample=Lsample),
         nextclade_csv = rules.nextclade.output.nextclade_csv,
         upstream_stat_r = rules.notebook_init.output.upstream_stat_r
     output: 
-        upstream_stat = Pstat + '/{batch_name}_upstream_stat.csv'
+        upstream_stat = Pstat + '/{batch_name}_upstream_stat.tsv'
     log: 
         notebook = Plog + '/upstream_stat/{batch_name}.r.ipynb', 
         e = Plog + '/upstream_stat/{batch_name}.e', 
@@ -334,9 +333,6 @@ rule upstream_stat:
     params: high_altfreq_threshold=config['high_altfreq_threshold']
     conda: 'envs/jupyter.yaml'
     notebook: rules.notebook_init.output.upstream_stat_r
-
-
-
 
 rule augur:
     message:
@@ -357,16 +353,16 @@ rule augur:
     shell:"""
         augur index \\
             --sequences {input.consensus_fa} \\
-            --output {output.index}
+            --output {output.index} 1>>{log.o} 2>>{log.e}
         augur align \\
             --sequences {input.consensus_fa} \\
             --reference-sequence {params.reference} \\
             --output {output.alignment} \\
-            --fill-gaps
+            --fill-gaps 1>>{log.o} 2>>{log.e}
         augur tree \\
             --alignment {output.alignment} \\
             --nthreads {resources.cpus} \\
-            --output {output.tree} 
+            --output {output.tree} 1>>{log.o} 2>>{log.e}
         """
 
 
