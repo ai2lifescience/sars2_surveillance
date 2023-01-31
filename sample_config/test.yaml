@@ -34,6 +34,7 @@ trim_ends_cpus: 30
 mask_genome_cpus: 30
 consensus_cpus: 30
 pangolin_cpus: 10
+merge_consensus_cpus: 2
 upstream_stat_cpus: 2
 nextclade_cpus: 10
 augur_cpus: 10

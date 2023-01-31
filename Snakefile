@@ -17,8 +17,7 @@ Pqc=f'{outdir}/1qc'
 Pmap=f'{outdir}/2map'
 Pdedup=f'{outdir}/3dedup'
 Pconsensus=f'{outdir}/4consensus'
-Plineage=f'{outdir}/5lineage'
-Ptree=f'{outdir}/6tree'
+Pnextclade=f'{outdir}/5nextclade'
 Pvarscan=f'{outdir}/7varscan'
 Pcontam=f'{outdir}/8contamination'
 
@@ -39,14 +38,12 @@ onstart:
 rule all:
     input:
         consensus_fa = expand(Pconsensus + '/{sample}/{sample}_consensus.fa', sample=Lsample),
-        lineage_csv = expand(Plineage + '/{sample}/{sample}_lineage.csv', sample=Lsample),
-        upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.csv', batch_name=batch_name),
         merge_consensus_fa = expand(Pstat + '/{batch_name}_consensus.fa', batch_name=batch_name),
-        nextclade_info = expand(Ptree + '/{batch_name}_nextclade.csv',batch_name=batch_name),
-        tree_json = expand(Ptree + '/{batch_name}.auspice.json',batch_name=batch_name),
-        index = expand(Ptree + '/{batch_name}_sequence_index.tsv',batch_name=batch_name),
-        alignment = expand(Ptree + '/{batch_name}_aligned.fasta',batch_name=batch_name),
-        tree = expand(Ptree + '/{batch_name}_tree_raw.nwk',batch_name=batch_name),
+        tree_json = expand(Pnextclade + '/{batch_name}.auspice.json',batch_name=batch_name),
+        nextclade_csv = expand(Pnextclade + '/{batch_name}_nextclade.csv',batch_name=batch_name),
+        upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.csv', batch_name=batch_name),
+        alignment = expand(Pnextclade + '/{batch_name}_aligned.fasta',batch_name=batch_name),
+        tree = expand(Pnextclade + '/{batch_name}_tree_raw.nwk',batch_name=batch_name),
         readcounts= expand(Pvarscan + '/{sample}/{sample}.readcounts',sample=Lsample),
         dcontam = expand(Pcontam + '/{sample}/{sample}.readcounts',sample=Lsample),
 
@@ -259,19 +256,6 @@ rule consensus:
 ### Downstream
 ##################################
 
-rule pangolin:
-    input: consensus_fa = rules.consensus.output.consensus_fa
-    output: lineage_csv = Plineage + '/{sample}/{sample}_lineage.csv',
-    log: e = Plog + '/pangolin/{sample}.e', o = Plog + '/pangolin/{sample}.o'
-    benchmark: Plog + '/pangolin/{sample}.bmk'
-    resources: cpus=config['pangolin_cpus']
-    params: pangolin_prifix=Plineage + '/{sample}/{sample}',
-    conda: 'envs/buildTree.yaml'
-    shell:"""
-        pangolin {input.consensus_fa} \\
-            --outfile {output.lineage_csv} -t {resources.cpus} 1>>{log.o} 2>>{log.e}
-        """
-
 rule notebook_init:
     input: 
         upstream_stat_r='scripts/upstream_stat.r.ipynb'
@@ -291,6 +275,45 @@ rule notebook_init:
             with open(output[k], 'w') as out:
                 json.dump(notebook, out)
 
+rule merge_consensus:
+    input:
+        Lconsensus = expand(rules.consensus.output.consensus_fa, sample=Lsample)
+    output: 
+        merge_consensus_fa = Pstat + '/{batch_name}_consensus.fa'
+    log: 
+        e = Plog + '/merge_consensus/{batch_name}.e', 
+        o = Plog + '/merge_consensus/{batch_name}.o'
+    benchmark: Plog + '/merge_consensus/{batch_name}.bmk'
+    resources: cpus=config['merge_consensus_cpus']
+    shell:"""
+        cat {input.Lconsensus} > {output.merge_consensus_fa}
+    """
+
+rule nextclade:
+    message:
+        '''
+        Calling mutations
+        Adding consensus to the existing tree
+        '''
+    input: merge_consensus_fa = rules.merge_consensus.output.merge_consensus_fa
+    output: 
+        nextclade_csv = Pnextclade + '/{batch_name}_nextclade.csv',
+        tree_json = Pnextclade + '/{batch_name}.auspice.json',
+    log:  e = Plog + '/nextclade/{batch_name}.e', o = Plog + '/nextclade/{batch_name}.o'
+    benchmark: Plog + '/nextclade/{batch_name}.bmk'
+    resources: cpus=config['nextclade_cpus']
+    params: built_tree=config['built_tree'],
+    conda: 'envs/buildTree.yaml'
+    shell:"""
+        nextclade run --in-order \\
+            --input-dataset={params.built_tree} \\
+            --output-csv={output.nextclade_csv} \\
+            --output-tree={output.tree_json} \\
+            {input.merge_consensus_fa} \\
+            1>{log.o} 2>{log.e}
+        """
+
+
 rule upstream_stat:
     input:
         Lqc = expand(rules.qc.output.json, sample=Lsample),
@@ -298,10 +321,10 @@ rule upstream_stat:
         Ldup_rate = expand(rules.dedup.log.e, sample=Lsample),
         Lalign_rate = expand(rules.rm_primer.log.o, sample=Lsample),
         Lvariant_info = expand(rules.consensus.output.variant_info, sample=Lsample),
+        nextclade_csv = rules.nextclade.output.nextclade_csv,
         upstream_stat_r = rules.notebook_init.output.upstream_stat_r
     output: 
-        upstream_stat = Pstat + '/{batch_name}_upstream_stat.csv',
-        merge_consensus_fa = Pstat + '/{batch_name}_consensus.fa'
+        upstream_stat = Pstat + '/{batch_name}_upstream_stat.csv'
     log: 
         notebook = Plog + '/upstream_stat/{batch_name}.r.ipynb', 
         e = Plog + '/upstream_stat/{batch_name}.e', 
@@ -313,60 +336,36 @@ rule upstream_stat:
     notebook: rules.notebook_init.output.upstream_stat_r
 
 
-rule nextclade:
-    message:
-        '''
-        Calling mutations
-        Adding consensus to the existing tree
-        '''
-    input: consensus_fa = rules.upstream_stat.output.merge_consensus_fa
-    output: 
-        nextclade_info = Ptree + '/{batch_name}_nextclade.csv',
-        tree_json = Ptree + '/{batch_name}.auspice.json',
-    log:  e = Plog + '/nextclade/{batch_name}.e', o = Plog + '/nextclade/{batch_name}.o'
-    benchmark: Plog + '/nextclade/{batch_name}.bmk'
-    resources: cpus=config['nextclade_cpus']
-    params: built_tree=config['built_tree'],
-    conda: 'envs/buildTree.yaml'
-    shell:
-        """
-        nextclade run \
-            --in-order \
-            --input-dataset={params.built_tree} \
-            --output-csv={output.nextclade_info} \
-            --output-tree={output.tree_json} \
-            {input.consensus_fa}
-        """
+
 
 rule augur:
     message:
         '''
         Building a tree with only the consensus 
         '''
-    input: consensus_fa = rules.upstream_stat.output.merge_consensus_fa
+    input: consensus_fa = rules.merge_consensus.output.merge_consensus_fa
     output: 
-        index = Ptree + '/{batch_name}_sequence_index.tsv',
-        alignment = Ptree + '/{batch_name}_aligned.fasta',
-        tree = Ptree + '/{batch_name}_tree_raw.nwk',
+        index = Pnextclade + '/{batch_name}_sequence_index.tsv',
+        alignment = Pnextclade + '/{batch_name}_aligned.fasta',
+        tree = Pnextclade + '/{batch_name}_tree_raw.nwk',
     log:  e = Plog + '/augur/{batch_name}.e', o = Plog + '/augur/{batch_name}.o'
     benchmark: Plog + '/augur/{batch_name}.bmk'
     resources: cpus=config['augur_cpus']
     params: 
         reference = config['root'],
     conda: 'envs/buildTree.yaml'
-    shell:
-        """
-        augur index \
-            --sequences {input.consensus_fa} \
+    shell:"""
+        augur index \\
+            --sequences {input.consensus_fa} \\
             --output {output.index}
-        augur align \
-            --sequences {input.consensus_fa} \
-            --reference-sequence {params.reference} \
-            --output {output.alignment} \
+        augur align \\
+            --sequences {input.consensus_fa} \\
+            --reference-sequence {params.reference} \\
+            --output {output.alignment} \\
             --fill-gaps
-        augur tree \
-            --alignment {output.alignment} \
-            --nthreads {resources.cpus} \
+        augur tree \\
+            --alignment {output.alignment} \\
+            --nthreads {resources.cpus} \\
             --output {output.tree} 
         """
 
