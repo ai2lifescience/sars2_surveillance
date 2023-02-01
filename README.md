@@ -47,7 +47,10 @@ echo 'use-conda: TRUE' >> ~/.config/snakemake/my_smk_config/config.yaml
 ```sh
 snakemake -j 5 --profile my_smk_config
 ```
-
+5. Update nextclade dataset
+```sh
+ nextclade dataset get --name 'sars-cov-2' --output-dir 'src/sars-cov-2'
+```
 
 ## run pipeline for new sample batch
 
