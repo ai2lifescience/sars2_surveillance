@@ -18,7 +18,7 @@ Pmap=f'{outdir}/2map'
 Pdedup=f'{outdir}/3dedup'
 Pconsensus=f'{outdir}/4consensus'
 Pnextclade=f'{outdir}/5nextclade'
-Pvarscan=f'{outdir}/7varscan'
+Preadcount=f'{outdir}/7readcount'
 Pcontam=f'{outdir}/8contamination'
 
 for p in [Pqc,Pmap]: 
@@ -44,8 +44,9 @@ rule all:
         upstream_stat = expand(Pstat + '/{batch_name}_upstream_stat.tsv', batch_name=batch_name),
         alignment = expand(Pnextclade + '/{batch_name}_aligned.fasta',batch_name=batch_name),
         tree = expand(Pnextclade + '/{batch_name}_tree_raw.nwk',batch_name=batch_name),
-        readcounts= expand(Pvarscan + '/{sample}/{sample}.readcounts',sample=Lsample),
-        dcontam = expand(Pcontam + '/{sample}/{sample}.readcounts',sample=Lsample),
+        readcounts= expand(Preadcount + '/{sample}/{sample}.readcount',sample=Lsample),
+        vaf_table = expand(Pcontam + '/{batch_name}_vaf_table.csv',batch_name=batch_name),
+        # dcontam = expand(Pcontam + '/{batch_name}_vaf_table.csv',sample=batch_name)
 
 
 ##################################
@@ -366,29 +367,42 @@ rule augur:
         """
 
 
-rule varscan_consencus:
+rule readcount:
     input:
-        pileup=rules.consensus.output.pileup
+        bqsr_bam = rules.consensus.output.bqsr_bam,
+        smp_genome_fa= rules.map.output.smp_genome_fa,
+        mask_genome_fa= rules.mask_genome.output.mask_genome_fa
     output:
-        readcounts=Pvarscan + '/{sample}/{sample}.readcounts',
-        consensus_varscan=Pvarscan + '/{sample}/{sample}_consensus.varscan'
-    log: e=Plog + '/varscan_consencus/{sample}.e',o=Plog + '/varscan_consencus/{sample}.o'
+        shallow_pileup=Preadcount + '/{sample}/{sample}.shallow_pileup',
+        readcount=Preadcount + '/{sample}/{sample}.readcount',
+        readcount_csv=Preadcount + '/{sample}/{sample}.readcount.csv',
+        readcount_varscan=Preadcount + '/{sample}/{sample}.readcount_varscan',
+        consensus_varscan=Preadcount + '/{sample}/{sample}_consensus.varscan'
+    log: e=Plog + '/readcount/{sample}.e',o=Plog + '/readcount/{sample}.o'
     params:
         min_coverage=config['min_coverage'],
-        min_allele_freq=config['min_allele_freq']
-    conda: 'envs/surveillance.yaml'
+        min_allele_freq=config['min_allele_freq'],
+        readcount2csv='bin/parsing_bam_readcount.py'
+    conda: 'envs/bamReadcount.yaml'
     shell:
         """
+        # using bam-readcount to generates readcount
+        bam-readcount -w1 -f {input.smp_genome_fa} {input.bqsr_bam} {wildcards.sample}:1-29903 \\
+        1>{output.readcount} 2>>{log.e}
+        python3 {params.readcount2csv} {output.readcount} {output.readcount_csv} 1>>{log.o} 2>>{log.e}
+
+
         # using varscan to call consensus and variants from an mpileup file
+        # mpileup
+        samtools mpileup -aa -A -d 3000000 -Q 0 {input.bqsr_bam} \\
+            -o {output.shallow_pileup} 1>>{log.o} 2>>{log.e}
         # readcounts
-        varscan readcounts {input.pileup} --output-file {output.readcounts} \\
+        varscan readcounts {output.shallow_pileup} --output-file {output.readcount_varscan} --min-coverage 0\\
             1>>{log.o} 2>>{log.e}
         # consensus
-        varscan mpileup2cns {input.pileup} --min-var-freq {params.min_allele_freq} \\
+        varscan mpileup2cns {output.shallow_pileup} --min-var-freq {params.min_allele_freq} \\
                                             --min-coverage {params.min_coverage} \\
          1>{output.consensus_varscan} 2>>{log.e}
-         
-         # detect cross contamination 
         """
 
 rule detect_contamination:
@@ -397,28 +411,22 @@ rule detect_contamination:
          detect cross contamination by sample allele frequency
         '''
     input:
-        pileup = rules.consensus.output.pileup
-
+        nextclade_csv = rules.nextclade.output.nextclade_csv,
+        readcount_csv= expand(rules.readcount.output.readcount_csv, sample=Lsample)
     output:
-        readcounts=Pcontam + '/{sample}/{sample}.readcounts',
-        consensus_varscan=Pcontam + '/{sample}/{sample}_consensus.varscan'
-    log: e=Plog + '/contamination/{sample}.e',o=Plog + '/contamination/{sample}.o'
+        vaf_table=Pcontam + '/{batch_name}_vaf_table.csv',
+        vaf_heatmap=Pcontam + '/{batch_name}_detect_contamination.png'
+    log: e=Plog + '/contamination/{batch_name}.e',o=Plog + '/contamination/{batch_name}.o'
     params:
         min_coverage=config['min_coverage'],
-        min_allele_freq=config['min_allele_freq']
+        min_allele_freq=config['min_allele_freq'],
+        readcount_dir = Preadcount
     conda: 'envs/detect_contamination.yaml'
     shell:
         """
-        # using varscan to call consensus and variants from an mpileup file
-        # readcounts
-        varscan readcounts {input.pileup} --output-file {output.readcounts} \\
-            1>>{log.o} 2>>{log.e}
-        # consensus
-        varscan mpileup2cns {input.pileup} --min-var-freq {params.min_allele_freq} \\
-                                            --min-coverage {params.min_coverage} \\
-         1>{output.consensus_varscan} 2>>{log.e}
-
-         # detect cross contamination 
+         python3 ./bin/detect_contamination.py {input.nextclade_csv} {params.readcount_dir}   \\
+         {output.vaf_table}  {output.vaf_heatmap}  \\
+         1>>{log.o} 2>>{log.e}
         """
 
 

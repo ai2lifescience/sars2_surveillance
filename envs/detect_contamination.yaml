@@ -3,6 +3,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - varscan=2.4.4
-  - samtools=1.6
+  - pandas=1.5.3
+  - matplotlib=3.6.3
+  - seaborn=0.12.2
 
