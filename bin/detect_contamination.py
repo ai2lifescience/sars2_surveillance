@@ -1,6 +1,7 @@
 from pathlib import Path
 import argparse
 
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -53,16 +54,19 @@ if __name__ == '__main__':
 
 
     nextclade = pd.read_csv(path1, sep=';')
+    nextclade = nextclade.set_index('seqName')
 
-    sample_list = nextclade['seqName'].values.tolist()
+    sample_list = nextclade.index.values.tolist()
 
     colors = mpl.colormaps['Set1'].resampled(10)        # matplotlib 3.6
     # colors = plt.cm.get_cmap('Set1', 10)              # matplotlib 3.5
     clade_list = nextclade['Nextclade_pango'].values.tolist()
     clade_color_map = set(clade_list)
     clade_color_map = {clade:colors(i % 10) for i, clade in enumerate(clade_color_map)}
+    clade_color_list = [clade_color_map[i] for i in clade_list]
 
-    substitutions_list = nextclade['substitutions'].values.tolist()
+    substitutions_list = nextclade['substitutions'].dropna()
+    substitutions_list = substitutions_list.values.tolist()
     substitutions_list = ','.join(substitutions_list)
     substitutions_list = substitutions_list.split(',')
     substitutions_list = set(substitutions_list)
@@ -72,7 +76,8 @@ if __name__ == '__main__':
     # print(substitutions_list)
 
     vaf_table = pd.DataFrame(data=0, index=sample_list, columns=substitutions_list)
-    #print(vaf_tabel)
+    vaf_table.index.name = 'sample'
+    # print(vaf_tabel)
 
     for ix, row in vaf_table.iterrows():
         readcount = pd.read_csv(path2/f'{ix}'/f'{ix}.readcount.csv')
@@ -93,13 +98,33 @@ if __name__ == '__main__':
     vaf_table.to_csv(path_vaf_table)
 
     # plot heatmap
+    # plt.style.use('fivethirtyeight')
+    # g = sns.clustermap(vaf_table,
+    #                    row_colors=clade_list_clor,
+    #                    cmap="plasma")
+    # patch_list = []
+    # for clade, color in clade_color_map.items():
+    #     patch = mpatches.Patch(color=color, label=clade)
+    #     patch_list.append(patch)
+    # plt.gcf().legend(handles=patch_list)
+    #
+    # plt.savefig(path_vaf_heatmap, dpi=600)
+
+
+    # plot heatmap
     plt.style.use('fivethirtyeight')
-    g = sns.clustermap(vaf_table, row_colors=list(clade_color_map.values()), cmap="plasma")
+    g = sns.clustermap(vaf_table, cmap="plasma")
     patch_list = []
     for clade, color in clade_color_map.items():
         patch = mpatches.Patch(color=color, label=clade)
         patch_list.append(patch)
     plt.gcf().legend(handles=patch_list)
+
+    for xtick_label in g.ax_heatmap.get_yticklabels():
+        sample_name = xtick_label.get_text()
+        clade = nextclade.loc[sample_name, 'Nextclade_pango']
+        label_color = clade_color_map[clade]
+        xtick_label.set_color(label_color)
 
     plt.savefig(path_vaf_heatmap, dpi=600)
 

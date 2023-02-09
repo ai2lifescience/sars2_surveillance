@@ -46,7 +46,6 @@ rule all:
         tree = expand(Pnextclade + '/{batch_name}_tree_raw.nwk',batch_name=batch_name),
         readcounts= expand(Preadcount + '/{sample}/{sample}.readcount',sample=Lsample),
         vaf_table = expand(Pcontam + '/{batch_name}_vaf_table.csv',batch_name=batch_name),
-        # dcontam = expand(Pcontam + '/{batch_name}_vaf_table.csv',sample=batch_name)
 
 
 ##################################
@@ -371,7 +370,6 @@ rule readcount:
     input:
         bqsr_bam = rules.consensus.output.bqsr_bam,
         smp_genome_fa= rules.map.output.smp_genome_fa,
-        mask_genome_fa= rules.mask_genome.output.mask_genome_fa
     output:
         shallow_pileup=Preadcount + '/{sample}/{sample}.shallow_pileup',
         readcount=Preadcount + '/{sample}/{sample}.readcount',
@@ -405,7 +403,7 @@ rule readcount:
          1>{output.consensus_varscan} 2>>{log.e}
         """
 
-rule detect_contamination:
+rule contamination:
     message:
         '''
          detect cross contamination by sample allele frequency
@@ -414,18 +412,19 @@ rule detect_contamination:
         nextclade_csv = rules.nextclade.output.nextclade_csv,
         readcount_csv= expand(rules.readcount.output.readcount_csv, sample=Lsample)
     output:
-        vaf_table=Pcontam + '/{batch_name}_vaf_table.csv',
-        vaf_heatmap=Pcontam + '/{batch_name}_detect_contamination.png'
-    log: e=Plog + '/contamination/{batch_name}.e',o=Plog + '/contamination/{batch_name}.o'
+        vaf_table=Pcontam + '/{batch_name}_vaf_table.csv'
+    log:
+        e=Plog + '/contamination/{batch_name}.e',
+        o=Plog + '/contamination/{batch_name}.o'
     params:
-        min_coverage=config['min_coverage'],
-        min_allele_freq=config['min_allele_freq'],
-        readcount_dir = Preadcount
+        readcount_dir = Preadcount,
+        detect_contamination = 'bin/detect_contamination.py',
+        vaf_heatmap=Pcontam + '/{batch_name}_detect_contamination.png'
     conda: 'envs/detect_contamination.yaml'
     shell:
         """
-         python3 ./bin/detect_contamination.py {input.nextclade_csv} {params.readcount_dir}   \\
-         {output.vaf_table}  {output.vaf_heatmap}  \\
+         python3 {params.detect_contamination} {input.nextclade_csv} {params.readcount_dir}   \\
+         {output.vaf_table}  {params.vaf_heatmap}  \\
          1>>{log.o} 2>>{log.e}
         """
 
