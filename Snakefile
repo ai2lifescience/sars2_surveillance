@@ -394,7 +394,7 @@ rule readcount:
 
         # using varscan to call consensus and variants from an mpileup file
         # mpileup
-        samtools mpileup -aa -A -d 3000000 -Q 0 {input.bqsr_bam} \\
+        samtools mpileup -aa -A -d 8000 -Q 0 {input.bqsr_bam} \\
             -o {output.shallow_pileup} 1>>{log.o} 2>>{log.e}
         # readcounts
         varscan readcounts {output.shallow_pileup} --output-file {output.readcount_varscan} --min-coverage 0\\
