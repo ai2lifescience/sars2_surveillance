@@ -46,19 +46,25 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-
     path1 = Path(args.file_in1)
     path2 = Path(args.file_in2)
     path_vaf_table = Path(args.file_out1)
     path_vaf_heatmap = Path(args.file_out2)
 
+    # path1 = Path('/media/data/fuhaoyi/sequencing_data/20230130/output/5nextclade/20230130_nextclade.csv')
+    # path2 = Path('/media/data/fuhaoyi/sequencing_data/20230130/output/7readcount')
+    # path_vaf_table = Path('/media/data/fuhaoyi/sequencing_data/20230130/output/8contamination/vaf_table.csv')
+    # path_vaf_heatmap = Path('/media/data/fuhaoyi/sequencing_data/20230130/output/8contamination/detect_comtam.png')
 
-    nextclade = pd.read_csv(path1, sep=';')
+
+
+
+    nextclade = pd.read_csv(path1, sep=';', dtype={'seqName': 'string'})
     nextclade = nextclade.set_index('seqName')
 
     sample_list = nextclade.index.values.tolist()
 
-    colors = mpl.colormaps['Set1'].resampled(10)        # matplotlib 3.6
+    colors = mpl.colormaps['tab10'].resampled(10)        # matplotlib 3.6
     # colors = plt.cm.get_cmap('Set1', 10)              # matplotlib 3.5
     clade_list = nextclade['Nextclade_pango'].values.tolist()
     clade_color_map = set(clade_list)
@@ -76,7 +82,7 @@ if __name__ == '__main__':
     # print(substitutions_list)
 
     vaf_table = pd.DataFrame(data=0, index=sample_list, columns=substitutions_list)
-    vaf_table.index.name = 'sample'
+    vaf_table.index.name = 'seqName'
     # print(vaf_tabel)
 
     for ix, row in vaf_table.iterrows():
@@ -113,14 +119,19 @@ if __name__ == '__main__':
 
     # plot heatmap
     plt.style.use('fivethirtyeight')
-    g = sns.clustermap(vaf_table, cmap="plasma")
+    g = sns.clustermap(vaf_table, cmap="viridis", figsize=(30, 15),
+                       xticklabels=True, yticklabels=True)
+    ax_heatmap = g.ax_heatmap
+    # ax_heatmap.set_xticklabels(ax_heatmap.get_xticklabels())
+    # ax_heatmap.set_yticklabels(ax_heatmap.get_yticklabels())
+
     patch_list = []
     for clade, color in clade_color_map.items():
         patch = mpatches.Patch(color=color, label=clade)
         patch_list.append(patch)
     plt.gcf().legend(handles=patch_list)
 
-    for xtick_label in g.ax_heatmap.get_yticklabels():
+    for xtick_label in ax_heatmap.get_yticklabels():
         sample_name = xtick_label.get_text()
         clade = nextclade.loc[sample_name, 'Nextclade_pango']
         label_color = clade_color_map[clade]
